@@ -5,10 +5,11 @@ import (
 	"io"
 	"strings"
 
+	"golang.org/x/net/html"
+
 	"github.com/Hunsin/compass/market"
 	"github.com/Hunsin/compass/trade"
 	hu "github.com/Hunsin/go-htmlutil"
-	"golang.org/x/net/html"
 )
 
 var isin = newAgent("http://isin.twse.com.tw/isin/e_class_main.jsp?owncode=%s&market=1")
