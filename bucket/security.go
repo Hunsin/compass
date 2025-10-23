@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"errors"
 
+	"cloud.google.com/go/civil"
+
 	"github.com/Hunsin/compass/crawler"
-	"github.com/Hunsin/date"
 )
 
 const (
@@ -21,7 +22,7 @@ type Security struct {
 	Symbol string
 	Market string
 	Name   string
-	Listed date.Date
+	Listed civil.Date
 	Type   string
 }
 
@@ -58,7 +59,7 @@ func (b *Bucket) NewSecurity(cs crawler.Security) (*Security, error) {
 	// return error if the properties are different
 	os, err := b.Find(ns.Symbol, ns.Market)
 	if err == nil {
-		if ns.Name != os.Name || !ns.Listed.Equal(os.Listed) || ns.Type != os.Type {
+		if ns.Name != os.Name || ns.Listed.Compare(os.Listed) != 0 || ns.Type != os.Type {
 			return nil, errors.New("bucket: The Security with different properties already exists")
 		}
 		return os, nil

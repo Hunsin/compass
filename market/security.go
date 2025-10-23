@@ -13,7 +13,7 @@ import (
 // A Security represents a financial instrument in a market.
 type Security struct {
 	profile          trade.Security
-	listed, delisted *civil.Date
+	listed, delisted civil.Date
 	quote            Quoter
 }
 
@@ -32,10 +32,10 @@ func (s *Security) Quotes(ctx context.Context, start, end civil.Date) ([]*trade.
 		return nil, Unlisted(s.profile.Symbol + "listed on date" + s.profile.Listed)
 	}
 	if s.listed.After(start) {
-		start = *s.listed
+		start = s.listed
 	}
-	if s.delisted != nil && s.delisted.Before(end) {
-		end = *s.delisted
+	if s.delisted.Before(end) {
+		end = s.delisted
 	}
 
 	qs, err := s.quote.Range(s.profile.Symbol, start, end)
