@@ -28,7 +28,7 @@ func diff(b *Security, c crawler.Security, t *testing.T, fn string) {
 }
 
 func equal(b *Security, c crawler.Security) bool {
-	return b.Listed.Equal(c.Listed()) &&
+	return b.Listed.Compare(c.Listed()) == 0 &&
 		b.Market == c.Market() &&
 		b.Symbol == c.Symbol() &&
 		b.Name == c.Name() &&
