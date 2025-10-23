@@ -4,6 +4,8 @@ syntax = "proto3";
 // between services.
 package trade;
 
+option go_package = "github.com/Hunsin/compass/trade";
+
 // A Quote represents the daily trading data of a Security on
 // a specific date. 
 message Quote {

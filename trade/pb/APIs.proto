@@ -2,7 +2,9 @@ syntax = "proto3";
 
 package pb;
 
-import "github.com/Hunsin/compass/trade/trade.proto";
+import "trade/trade.proto";
+
+option go_package = "github.com/Hunsin/compass/trade/pb";
 
 service Compass {
 	rpc Register  (stream Result) returns (stream Query);
