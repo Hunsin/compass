@@ -1,14 +1,25 @@
+x-tools-shared: &tools-shared
+  volumes:
+    - ${ROOT_DIR:?error}:/compass
+  working_dir: /compass
+  networks:
+    - compass
+  profiles:
+    - tools
+
 services:
   dev:
     build:
       dockerfile: dockerfiles/dev.Dockerfile
       tags:
-        - compass/dev:${GIT_COMMIT_SHA}
-    image: compass/dev:${GIT_COMMIT_SHA}
+        - compass/dev:${GIT_COMMIT_SHA:?error}
+    image: compass/dev:${GIT_COMMIT_SHA:?error}
     container_name: compass-dev
+    environment:
+      - ROOT_DIR=${ROOT_DIR:?error}
     entrypoint: /bin/sh
     volumes:
-      - .:/compass
+      - ${ROOT_DIR:?error}:/compass
       - /var/run/docker.sock:/var/run/docker.sock
     working_dir: /compass
     networks:
@@ -16,28 +27,19 @@ services:
     tty: true
 
   migrate:
+    <<: *tools-shared
     image: migrate/migrate:v4.19.1
     entrypoint:
       - migrate
-      - -path=/postgres/migrations
+      - -path=postgres/migrations
       - -database=${POSTGRES_URL}
-    volumes:
-      - ./postgres:/postgres
-    networks:
-      - compass
-    profiles:
-      - tools
 
   sqlc:
+    <<: *tools-shared
     image: sqlc/sqlc:1.30.0
     command: generate
-    volumes:
-      - .:/compass
     env_file:
       - .env
-    working_dir: /compass
-    profiles:
-      - tools
 
   postgres:
     image: postgres:18.1-alpine3.23

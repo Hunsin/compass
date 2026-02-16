@@ -1,3 +1,6 @@
+ifndef ROOT_DIR
+	export ROOT_DIR = $(shell git rev-parse --show-toplevel)
+endif
 export GIT_COMMIT_SHA = $(shell git rev-parse --short HEAD)
 
 COMPOSE_RUN = docker compose run --rm --remove-orphans
