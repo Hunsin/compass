@@ -23,3 +23,6 @@ migrate-down:
 
 migrate-version:
 	@$(COMPOSE_RUN) migrate version
+
+sqlc:
+	@$(COMPOSE_RUN) sqlc

@@ -1,0 +1,26 @@
+version: "2"
+servers:
+  - engine: postgresql
+    uri: ${POSTGRES_URL}
+sql:
+  - engine: postgresql
+    queries: postgres/queries/query.sql
+    schema: postgres/migrations
+    gen:
+      go:
+        package: model
+        out: postgres/gen/model
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        query_parameter_limit: 3
+        omit_unused_structs: true
+        overrides: &overrides
+          - db_type: uuid
+            nullable: true
+            go_type:
+              import: github.com/google/uuid
+              type: UUID
+        rename:
+          ohlcva_per_min: OHLCVAperMin
+          ohlcva_per_30min: OHLCVAper30Min
+          ohlcva_per_day: OHLCVAperDay

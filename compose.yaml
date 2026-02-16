@@ -28,6 +28,17 @@ services:
     profiles:
       - tools
 
+  sqlc:
+    image: sqlc/sqlc:1.30.0
+    command: generate
+    volumes:
+      - .:/compass
+    env_file:
+      - .env
+    working_dir: /compass
+    profiles:
+      - tools
+
   postgres:
     image: postgres:18.1-alpine3.23
     container_name: compass-postgres
