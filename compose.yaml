@@ -1,0 +1,20 @@
+services:
+  dev:
+    build:
+      dockerfile: dockerfiles/dev.Dockerfile
+      tags:
+        - compass/dev:${GIT_COMMIT_SHA}
+    image: compass/dev:${GIT_COMMIT_SHA}
+    container_name: compass-dev
+    entrypoint: /bin/sh
+    volumes:
+      - .:/compass
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /compass
+    networks:
+      - compass
+    tty: true
+
+networks:
+  compass:
+    name: compass
