@@ -15,6 +15,32 @@ services:
       - compass
     tty: true
 
+  migrate:
+    image: migrate/migrate:v4.19.1
+    entrypoint:
+      - migrate
+      - -path=/postgres/migrations
+      - -database=${POSTGRES_URL}
+    volumes:
+      - ./postgres:/postgres
+    networks:
+      - compass
+    profiles:
+      - tools
+
+  postgres:
+    image: postgres:18.1-alpine3.23
+    container_name: compass-postgres
+    env_file:
+      - .env
+    healthcheck:
+      test: pg_isready
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - compass
+
 networks:
   compass:
     name: compass
