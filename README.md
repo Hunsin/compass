@@ -58,6 +58,7 @@ make sqlc
 │   ├── gen/             # Generated Go code from SQL queries
 │   ├── migrations/      # Database migrations
 │   └── queries/         # SQL queries for sqlc
+├── protocols/           # Protobuf definitions
 └── lib/                 # Go libraries
 ```
 

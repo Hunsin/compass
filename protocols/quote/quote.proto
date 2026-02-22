@@ -1,0 +1,59 @@
+edition = "2024";
+
+package quote;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "github.com/Hunsin/compass/protocols/gen/go/quote";
+
+message Exchange {
+  string abbr = 1; // The lower case abbreviation of the exchange, e.g., "nyse"
+  string name = 2; // The exchange name, e.g., "New York Stock Exchange"
+  string timezone = 3; // Timezone of the exchange, e.g., "America/New_York"
+}
+
+message Security {
+  string exchange = 1; // Exchange where the security is listed
+  string symbol = 2;
+  string name = 3;
+}
+
+// Message representing a quote with OHLCV and date fields
+message OHLCVA {
+  google.protobuf.Timestamp ts = 1; // Timestamp of local time
+  double open = 2; // Opening price
+  double high = 3; // Highest price
+  double low = 4; // Lowest price
+  double close = 5; // Closing price
+  uint64 volume = 6; // Volume traded
+  uint64 amount = 7; // Total amount
+}
+
+message CreateOHLCVAsRequest {
+  string exchange = 1; // Exchange abbreviation
+  string symbol = 2; // Security symbol
+  google.protobuf.Duration interval = 3; // Accepted values: 1m, 1d
+  repeated OHLCVA ohlcva = 4;
+}
+
+message GetOHLCVAsRequest {
+  string exchange = 1;
+  string symbol = 2;
+  google.protobuf.Duration interval = 3; // Accepted values: 1m, 5m, 30m, 1h, 1d, 1w, 1M
+  google.protobuf.Timestamp from = 4; // Start timestamp, inclusive
+  google.protobuf.Timestamp before = 5; // End timestamp, exclusive
+}
+
+service QuoteService {
+  rpc CreateExchange(Exchange) returns (google.protobuf.Empty);
+  rpc GetExchanges(google.protobuf.Empty) returns (stream Exchange);
+
+  rpc CreateSecurities(stream Security) returns (google.protobuf.Empty);
+  rpc CreateSecurity(Security) returns (Security);
+  rpc GetSecurities(Exchange) returns (stream Security);
+
+  rpc CreateOHLCVAs(CreateOHLCVAsRequest) returns (google.protobuf.Empty);
+  rpc GetOHLCVAs(GetOHLCVAsRequest) returns (stream OHLCVA);
+}
