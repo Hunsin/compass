@@ -26,6 +26,11 @@ services:
       - compass
     tty: true
 
+  buf:
+    <<: *tools-shared
+    image: bufbuild/buf:1.65.0
+    command: generate
+
   migrate:
     <<: *tools-shared
     image: migrate/migrate:v4.19.1

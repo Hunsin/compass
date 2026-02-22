@@ -31,8 +31,11 @@ make sqlc
 # Start all services
 make start
 
-# Stop services and remove images
+# Stop services
 make stop
+
+# Stop services and remove images
+make clean
 
 # Access development container
 make go
@@ -47,6 +50,9 @@ make migrate-version # Check migration version
 
 # Generate Go code from SQL queries
 make sqlc
+
+# Generate Go and Python code from Protobuf definitions
+make proto
 ```
 
 ## Project Structure
@@ -58,8 +64,11 @@ make sqlc
 │   ├── gen/             # Generated Go code from SQL queries
 │   ├── migrations/      # Database migrations
 │   └── queries/         # SQL queries for sqlc
-├── protocols/           # Protobuf definitions
-└── lib/                 # Go libraries
+└── protocols/
+    ├── gen/
+    │   ├── go/          # Generated Go code from Protobuf definitions
+    │   └── python/      # Generated Python code from Protobuf definitions
+    └── quote/           # Protobuf definitions for the quote service
 ```
 
 ## Database
@@ -71,3 +80,7 @@ Migrations are managed using [golang-migrate](https://github.com/golang-migrate/
 ### SQL Code Generation
 
 The project uses [sqlc](https://sqlc.dev/) to generate type-safe Go code from SQL queries. Configuration is defined in `sqlc.yaml`.
+
+## Protobuf
+
+Protobuf definitions live in `protocols/`. Code generation is handled by [buf](https://buf.build/) using remote plugins — no local plugin installation required. Configuration is in `buf.yaml` and `buf.gen.yaml`.
