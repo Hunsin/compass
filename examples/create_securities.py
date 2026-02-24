@@ -1,13 +1,15 @@
 """
-Example: using the QuoteService gRPC client.
+Create the TWSE exchange and a set of securities via the Quote gRPC service.
+
+Usage:
+    python examples/create_securities.py
+    python examples/create_securities.py --server localhost:50168
 
 Prerequisites:
-    pip install grpcio grpcio-tools protobuf
-
-Run (assumes the server is listening on localhost:50168):
-    python protocols/example.py
+    pip install grpcio protobuf
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -17,26 +19,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "protocols" / "gen" / "python"))
 
 import grpc
-from datetime import datetime, timezone, timedelta
-from google.protobuf import empty_pb2, timestamp_pb2, duration_pb2
+from google.protobuf import empty_pb2
 from quote import quote_pb2, quote_pb2_grpc
 
-SERVER_ADDR = "localhost:50168"
-
-
-def make_duration(minutes: int = 0, days: int = 0) -> duration_pb2.Duration:
-    total_seconds = minutes * 60 + days * 86400
-    return duration_pb2.Duration(seconds=total_seconds)
-
-
-def make_timestamp(dt: datetime) -> timestamp_pb2.Timestamp:
-    ts = timestamp_pb2.Timestamp()
-    ts.FromDatetime(dt)
-    return ts
-
+DEFAULT_SERVER = "localhost:50168"
 
 def main():
-    with grpc.insecure_channel(SERVER_ADDR) as channel:
+    parser = argparse.ArgumentParser(description="Create TWSE exchange and securities")
+    parser.add_argument("--server", default=DEFAULT_SERVER, help="gRPC server address")
+    args = parser.parse_args()
+
+    with grpc.insecure_channel(args.server) as channel:
         stub = quote_pb2_grpc.QuoteServiceStub(channel)
 
         # --- CreateExchange ---

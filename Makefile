@@ -8,14 +8,12 @@ COMPOSE_RUN = docker compose run --rm --remove-orphans
 start:
 	@docker compose up --wait -d
 
-stop:
+stop: stop-quote
 	@docker compose down --remove-orphans
 
-clean:
-	@docker compose down --remove-orphans --rmi local
-
-go:
-	@docker exec -it compass-dev sh
+clean: stop-quote
+	-@docker compose down --remove-orphans --rmi local --volumes
+	-@docker volume rm compass-app
 
 psql:
 	@docker exec -it compass-postgres psql
@@ -35,3 +33,15 @@ sqlc:
 
 proto:
 	@$(COMPOSE_RUN) buf
+
+partition:
+	@cat examples/create_partition.sql | docker exec -i compass-postgres psql
+
+install: migrate-up sqlc proto partition
+	@$(COMPOSE_RUN) dev go install ./...
+
+start-quote:
+	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --listen-addr :50168
+
+stop-quote:
+	-@docker stop compass-quote-service

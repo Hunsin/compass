@@ -9,22 +9,20 @@ x-tools-shared: &tools-shared
 
 services:
   dev:
+    <<: *tools-shared
     build:
       dockerfile: dockerfiles/dev.Dockerfile
       tags:
         - compass/dev:${GIT_COMMIT_SHA:?error}
     image: compass/dev:${GIT_COMMIT_SHA:?error}
-    container_name: compass-dev
     environment:
       - ROOT_DIR=${ROOT_DIR:?error}
-    entrypoint: /bin/sh
+    env_file:
+      - .env
     volumes:
       - ${ROOT_DIR:?error}:/compass
+      - app:/go/bin
       - /var/run/docker.sock:/var/run/docker.sock
-    working_dir: /compass
-    networks:
-      - compass
-    tty: true
 
   buf:
     <<: *tools-shared
@@ -58,6 +56,24 @@ services:
       retries: 5
     networks:
       - compass
+
+  app:
+    image: alpine:3.23.3
+    env_file:
+      - .env
+    entrypoint: compass
+    volumes:
+      - app:/usr/local/bin:ro
+    depends_on:
+      - postgres
+    networks:
+      - compass
+    profiles:
+      - app
+
+volumes:
+  app:
+    name: compass-app
 
 networks:
   compass:
