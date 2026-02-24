@@ -58,7 +58,11 @@ services:
       - compass
 
   app:
-    image: alpine:3.23.3
+    build:
+      dockerfile: dockerfiles/app.Dockerfile
+      tags:
+        - compass/app:${GIT_COMMIT_SHA:?error}
+    image: compass/app:${GIT_COMMIT_SHA:?error}
     env_file:
       - .env
     entrypoint: compass

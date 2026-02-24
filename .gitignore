@@ -1,2 +1,3 @@
 postgres/gen
 protocols/gen
+.venv

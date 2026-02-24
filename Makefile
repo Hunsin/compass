@@ -37,7 +37,7 @@ proto:
 partition:
 	@cat examples/create_partition.sql | docker exec -i compass-postgres psql
 
-install: migrate-up sqlc proto partition
+install: start migrate-up sqlc proto partition
 	@$(COMPOSE_RUN) dev go install ./...
 
 start-quote:
