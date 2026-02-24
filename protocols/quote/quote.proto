@@ -51,7 +51,6 @@ service QuoteService {
   rpc GetExchanges(google.protobuf.Empty) returns (stream Exchange);
 
   rpc CreateSecurities(stream Security) returns (google.protobuf.Empty);
-  rpc CreateSecurity(Security) returns (Security);
   rpc GetSecurities(Exchange) returns (stream Security);
 
   rpc CreateOHLCVAs(CreateOHLCVAsRequest) returns (google.protobuf.Empty);

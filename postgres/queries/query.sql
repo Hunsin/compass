@@ -1,6 +1,9 @@
 -- name: InsertExchange :exec
 INSERT INTO exchanges (abbr, name, timezone) VALUES (@abbr, @name, @timezone);
 
+-- name: GetExchange :one
+SELECT abbr, name, timezone FROM exchanges WHERE abbr = @abbr;
+
 -- name: GetExchanges :many
 SELECT * FROM exchanges;
 
