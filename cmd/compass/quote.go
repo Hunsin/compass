@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"net"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 
 	"github.com/Hunsin/compass/lib/flags"
-	"github.com/Hunsin/compass/postgres/gen/model"
+	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
-	quoteservice "github.com/Hunsin/compass/services/quote"
+	quoteSvc "github.com/Hunsin/compass/services/quote"
 )
 
 func quoteCommand() *cli.Command {
@@ -26,7 +27,11 @@ func quoteCommand() *cli.Command {
 			}
 			defer conn.Close(ctx)
 
-			db := model.New(conn)
+			childCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			if err := conn.Ping(childCtx); err != nil {
+				return err
+			}
 
 			lis, err := net.Listen("tcp", cmd.String("listen-addr"))
 			if err != nil {
@@ -34,7 +39,8 @@ func quoteCommand() *cli.Command {
 			}
 
 			srv := grpc.NewServer()
-			pb.RegisterQuoteServiceServer(srv, quoteservice.New(db))
+			model := quoteLib.Connect(conn)
+			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
 
 			return srv.Serve(lis)
 		},

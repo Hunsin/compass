@@ -1,0 +1,395 @@
+package quote
+
+import (
+	"context"
+	"errors"
+	"math"
+	"math/big"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/Hunsin/compass/postgres/gen/model"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+)
+
+// DB is a PostgreSQL-backed implementation of Model.
+type DB struct {
+	queries *model.Queries
+}
+
+// Connect establishes a DB connection and returns a Model.
+func Connect(conn *pgx.Conn) Model {
+	return &DB{queries: model.New(conn)}
+}
+
+func (d *DB) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
+	if err := d.queries.InsertExchange(ctx, ex.GetAbbr(), ex.GetName(), ex.GetTimezone()); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return ErrAlreadyExists
+		}
+		return err
+	}
+	return nil
+}
+
+func (d *DB) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
+	rows, err := d.queries.GetExchanges(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*pb.Exchange, len(rows))
+	for i, r := range rows {
+		abbr := r.Abbr
+		name := r.Name
+		tz := r.Timezone
+		result[i] = &pb.Exchange{Abbr: &abbr, Name: &name, Timezone: &tz}
+	}
+	return result, nil
+}
+
+func (d *DB) CreateSecurities(ctx context.Context, securities []*pb.Security) error {
+	exchanges, err := d.queries.GetExchanges(ctx)
+	if err != nil {
+		return err
+	}
+	exchangeSet := make(map[string]bool, len(exchanges))
+	for _, ex := range exchanges {
+		exchangeSet[ex.Abbr] = true
+	}
+
+	params := make([]model.InsertSecuritiesParams, 0, len(securities))
+	for _, sec := range securities {
+		if !exchangeSet[sec.GetExchange()] {
+			return ErrNotFound
+		}
+		params = append(params, model.InsertSecuritiesParams{
+			Exchange: sec.GetExchange(),
+			Symbol:   sec.GetSymbol(),
+			Name:     sec.GetName(),
+		})
+	}
+
+	if _, err := d.queries.InsertSecurities(ctx, params); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case "23505":
+				return ErrAlreadyExists
+			case "23503":
+				return ErrNotFound
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+func (d *DB) GetSecurities(ctx context.Context, exchange string) ([]*pb.Security, error) {
+	rows, err := d.queries.GetSecurities(ctx, exchange)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		if _, err := d.queries.GetExchange(ctx, exchange); err != nil {
+			return nil, ErrNotFound
+		}
+		return nil, nil
+	}
+	result := make([]*pb.Security, len(rows))
+	for i, r := range rows {
+		exch := r.Exchange
+		sym := r.Symbol
+		name := r.Name
+		result[i] = &pb.Security{Exchange: &exch, Symbol: &sym, Name: &name}
+	}
+	return result, nil
+}
+
+func (d *DB) CreateOHLCVAs(ctx context.Context, exchange, symbol string, interval int64, ohlcvas []*pb.OHLCVA) error {
+	secs, err := d.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
+	if err != nil || len(secs) == 0 {
+		return ErrNotFound
+	}
+	secID := secs[0].ID
+
+	if interval == Interval1d {
+		return d.createOHLCVAsPerDay(ctx, secID, ohlcvas)
+	}
+	return d.createOHLCVAsPerMin(ctx, secID, ohlcvas)
+}
+
+func (d *DB) createOHLCVAsPerDay(ctx context.Context, secID pgtype.UUID, ohlcvas []*pb.OHLCVA) error {
+	params := make([]model.InsertOHLCVAsPerDayParams, len(ohlcvas))
+	for i, o := range ohlcvas {
+		params[i] = model.InsertOHLCVAsPerDayParams{
+			SecID:  secID,
+			Date:   pgtype.Date{Time: o.GetTs().AsTime(), Valid: true},
+			Open:   floatToNumeric(o.GetOpen()),
+			High:   floatToNumeric(o.GetHigh()),
+			Low:    floatToNumeric(o.GetLow()),
+			Close:  floatToNumeric(o.GetClose()),
+			Volume: int64(o.GetVolume()),
+			Amount: uint64ToNumeric(o.GetAmount()),
+		}
+	}
+	_, err := d.queries.InsertOHLCVAsPerDay(ctx, params)
+	return err
+}
+
+func (d *DB) createOHLCVAsPerMin(ctx context.Context, secID pgtype.UUID, ohlcvas []*pb.OHLCVA) error {
+	minParams := make([]model.InsertOHLCVAsPerMinParams, len(ohlcvas))
+	for i, o := range ohlcvas {
+		t := o.GetTs().AsTime().Truncate(time.Minute)
+		minParams[i] = model.InsertOHLCVAsPerMinParams{
+			SecID:  secID,
+			Ts:     pgtype.Timestamp{Time: t, Valid: true},
+			Open:   floatToNumeric(o.GetOpen()),
+			High:   floatToNumeric(o.GetHigh()),
+			Low:    floatToNumeric(o.GetLow()),
+			Close:  floatToNumeric(o.GetClose()),
+			Volume: int64(o.GetVolume()),
+			Amount: uint64ToNumeric(o.GetAmount()),
+		}
+	}
+	if _, err := d.queries.InsertOHLCVAsPerMin(ctx, minParams); err != nil {
+		return err
+	}
+
+	// Aggregate into 30-minute buckets and persist.
+	thirtyMin := aggregateOHLCVAs(ohlcvas, func(t time.Time) time.Time {
+		return t.Truncate(30 * time.Minute)
+	})
+	thirtyMinParams := make([]model.InsertOHLCVAsPer30MinParams, len(thirtyMin))
+	for i, o := range thirtyMin {
+		thirtyMinParams[i] = model.InsertOHLCVAsPer30MinParams{
+			SecID:  secID,
+			Ts:     pgtype.Timestamp{Time: o.GetTs().AsTime(), Valid: true},
+			Open:   floatToNumeric(o.GetOpen()),
+			High:   floatToNumeric(o.GetHigh()),
+			Low:    floatToNumeric(o.GetLow()),
+			Close:  floatToNumeric(o.GetClose()),
+			Volume: int64(o.GetVolume()),
+			Amount: uint64ToNumeric(o.GetAmount()),
+		}
+	}
+	_, err := d.queries.InsertOHLCVAsPer30Min(ctx, thirtyMinParams)
+	return err
+}
+
+func (d *DB) GetOHLCVAs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCVA, error) {
+	secs, err := d.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
+	if err != nil || len(secs) == 0 {
+		return nil, ErrNotFound
+	}
+	secID := secs[0].ID
+
+	switch interval {
+	case Interval1m, Interval5m:
+		return d.getOHLCVAsPerMin(ctx, secID, from, before, interval)
+	case Interval30m, Interval1h:
+		return d.getOHLCVAsPer30Min(ctx, secID, from, before, interval)
+	default:
+		return d.getOHLCVAsPerDay(ctx, secID, from, before, interval)
+	}
+}
+
+func (d *DB) getOHLCVAsPerMin(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCVA, error) {
+	rows, err := d.queries.GetOHLCVAsPerMin(ctx, secID,
+		pgtype.Timestamp{Time: from, Valid: true},
+		pgtype.Timestamp{Time: before, Valid: true},
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*pb.OHLCVA, len(rows))
+	for i, r := range rows {
+		result[i] = ohlcvaProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume, r.Amount)
+	}
+	if interval == Interval5m {
+		return aggregateOHLCVAs(result, func(t time.Time) time.Time {
+			return t.Truncate(5 * time.Minute)
+		}), nil
+	}
+	return result, nil
+}
+
+func (d *DB) getOHLCVAsPer30Min(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCVA, error) {
+	rows, err := d.queries.GetOHLCVAsPer30Min(ctx, secID,
+		pgtype.Timestamp{Time: from, Valid: true},
+		pgtype.Timestamp{Time: before, Valid: true},
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*pb.OHLCVA, len(rows))
+	for i, r := range rows {
+		result[i] = ohlcvaProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume, r.Amount)
+	}
+	if interval == Interval1h {
+		return aggregateOHLCVAs(result, func(t time.Time) time.Time {
+			return t.Truncate(time.Hour)
+		}), nil
+	}
+	return result, nil
+}
+
+func (d *DB) getOHLCVAsPerDay(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCVA, error) {
+	rows, err := d.queries.GetOHLCVAsPerDay(ctx, secID,
+		pgtype.Date{Time: from, Valid: true},
+		pgtype.Date{Time: before, Valid: true},
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*pb.OHLCVA, len(rows))
+	for i, r := range rows {
+		result[i] = ohlcvaProto(r.Date.Time, r.Open, r.High, r.Low, r.Close, r.Volume, r.Amount)
+	}
+	if interval == Interval1d {
+		return result, nil
+	}
+	bucketFn := weekBucket
+	if interval == Interval1M {
+		bucketFn = monthBucket
+	}
+	return aggregateOHLCVAs(result, bucketFn), nil
+}
+
+// aggregateOHLCVAs groups OHLCVA rows by bucket key and aggregates them.
+// Rows must be sorted by time ascending.
+func aggregateOHLCVAs(rows []*pb.OHLCVA, bucket func(time.Time) time.Time) []*pb.OHLCVA {
+	type agg struct {
+		ts     time.Time
+		open   float64
+		high   float64
+		low    float64
+		close  float64
+		volume uint64
+		amount uint64
+	}
+
+	buckets := make(map[time.Time]*agg)
+	var order []time.Time
+
+	for _, row := range rows {
+		k := bucket(row.GetTs().AsTime())
+		if b, ok := buckets[k]; !ok {
+			buckets[k] = &agg{
+				ts:     k,
+				open:   row.GetOpen(),
+				high:   row.GetHigh(),
+				low:    row.GetLow(),
+				close:  row.GetClose(),
+				volume: row.GetVolume(),
+				amount: row.GetAmount(),
+			}
+			order = append(order, k)
+		} else {
+			if row.GetHigh() > b.high {
+				b.high = row.GetHigh()
+			}
+			if row.GetLow() < b.low {
+				b.low = row.GetLow()
+			}
+			b.close = row.GetClose()
+			b.volume += row.GetVolume()
+			b.amount += row.GetAmount()
+		}
+	}
+
+	result := make([]*pb.OHLCVA, 0, len(order))
+	for _, k := range order {
+		b := buckets[k]
+		o := b.open
+		h := b.high
+		l := b.low
+		c := b.close
+		v := b.volume
+		a := b.amount
+		result = append(result, &pb.OHLCVA{
+			Ts:     timestamppb.New(k),
+			Open:   &o,
+			High:   &h,
+			Low:    &l,
+			Close:  &c,
+			Volume: &v,
+			Amount: &a,
+		})
+	}
+	return result
+}
+
+// weekBucket returns the Monday of the ISO week containing t.
+func weekBucket(t time.Time) time.Time {
+	weekday := int(t.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	monday := t.AddDate(0, 0, -(weekday - 1))
+	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
+}
+
+// monthBucket returns the first day of the month containing t.
+func monthBucket(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+}
+
+// ohlcvaProto constructs a *pb.OHLCVA from DB row fields.
+func ohlcvaProto(ts time.Time, open, high, low, close_ pgtype.Numeric, volume int64, amount pgtype.Numeric) *pb.OHLCVA {
+	o := numericToFloat(open)
+	h := numericToFloat(high)
+	l := numericToFloat(low)
+	c := numericToFloat(close_)
+	v := uint64(volume)
+	a := numericToUint64(amount)
+	return &pb.OHLCVA{
+		Ts:     timestamppb.New(ts),
+		Open:   &o,
+		High:   &h,
+		Low:    &l,
+		Close:  &c,
+		Volume: &v,
+		Amount: &a,
+	}
+}
+
+func floatToNumeric(f float64) pgtype.Numeric {
+	s := strconv.FormatFloat(f, 'f', -1, 64)
+	dotIdx := strings.IndexByte(s, '.')
+	var intStr string
+	var exp int32
+	if dotIdx == -1 {
+		intStr = s
+	} else {
+		intStr = s[:dotIdx] + s[dotIdx+1:]
+		exp = -int32(len(s) - dotIdx - 1)
+	}
+	bigInt, _ := new(big.Int).SetString(intStr, 10)
+	return pgtype.Numeric{Int: bigInt, Exp: exp, Valid: true}
+}
+
+func numericToFloat(n pgtype.Numeric) float64 {
+	if !n.Valid || n.NaN || n.Int == nil {
+		return 0
+	}
+	f, _ := new(big.Float).SetInt(n.Int).Float64()
+	if n.Exp != 0 {
+		f *= math.Pow10(int(n.Exp))
+	}
+	return f
+}
+
+func uint64ToNumeric(u uint64) pgtype.Numeric {
+	return pgtype.Numeric{Int: new(big.Int).SetUint64(u), Exp: 0, Valid: true}
+}
+
+func numericToUint64(n pgtype.Numeric) uint64 {
+	return uint64(math.Round(numericToFloat(n)))
+}
