@@ -34,6 +34,9 @@ sqlc:
 proto:
 	@$(COMPOSE_RUN) buf
 
+lint:
+	@$(COMPOSE_RUN) dev golangci-lint run
+
 partition:
 	@cat examples/create_partition.sql | docker exec -i compass-postgres psql
 
