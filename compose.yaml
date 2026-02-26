@@ -24,11 +24,6 @@ services:
       - app:/go/bin
       - /var/run/docker.sock:/var/run/docker.sock
 
-  buf:
-    <<: *tools-shared
-    image: bufbuild/buf:1.65.0
-    command: generate
-
   migrate:
     <<: *tools-shared
     image: migrate/migrate:v4.19.1
@@ -43,6 +38,15 @@ services:
     command: generate
     env_file:
       - .env
+
+  buf:
+    <<: *tools-shared
+    image: bufbuild/buf:1.65.0
+    command: generate
+
+  mockery:
+    <<: *tools-shared
+    image: vektra/mockery:v3.6.4
 
   postgres:
     image: postgres:18.2-alpine3.23

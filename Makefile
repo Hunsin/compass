@@ -34,13 +34,19 @@ sqlc:
 proto:
 	@$(COMPOSE_RUN) buf
 
+mock:
+	@$(COMPOSE_RUN) mockery
+
 lint:
 	@$(COMPOSE_RUN) dev golangci-lint run
+
+test:
+	@$(COMPOSE_RUN) dev go test ./...
 
 partition:
 	@cat examples/create_partition.sql | docker exec -i compass-postgres psql
 
-install: start migrate-up sqlc proto partition
+install: start migrate-up sqlc proto mock partition
 	@$(COMPOSE_RUN) dev go install ./...
 
 start-quote:
