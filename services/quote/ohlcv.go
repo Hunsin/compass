@@ -13,15 +13,15 @@ import (
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
 )
 
-func (s *Service) CreateOHLCVAs(ctx context.Context, req *pb.CreateOHLCVAsRequest) (*emptypb.Empty, error) {
+func (s *Service) CreateOHLCVs(ctx context.Context, req *pb.CreateOHLCVsRequest) (*emptypb.Empty, error) {
 	if req.GetExchange() == "" || req.GetSymbol() == "" {
 		return nil, status.Error(codes.InvalidArgument, "exchange and symbol are required")
 	}
 	if req.Interval == nil {
 		return nil, status.Error(codes.InvalidArgument, "interval is required")
 	}
-	if len(req.Ohlcva) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "ohlcva data is required")
+	if len(req.Ohlcv) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "ohlcv data is required")
 	}
 
 	intervalSecs := req.Interval.Seconds
@@ -29,13 +29,13 @@ func (s *Service) CreateOHLCVAs(ctx context.Context, req *pb.CreateOHLCVAsReques
 		return nil, status.Error(codes.InvalidArgument, "interval must be 1m or 1d")
 	}
 
-	for _, o := range req.Ohlcva {
+	for _, o := range req.Ohlcv {
 		if o.GetTs() == nil {
 			return nil, status.Error(codes.InvalidArgument, "timestamp is required")
 		}
 	}
 
-	if err := s.model.CreateOHLCVAs(ctx, req.GetExchange(), req.GetSymbol(), intervalSecs, req.Ohlcva); err != nil {
+	if err := s.model.CreateOHLCVs(ctx, req.GetExchange(), req.GetSymbol(), intervalSecs, req.Ohlcv); err != nil {
 		if errors.Is(err, quoteLib.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "security not found")
 		}
@@ -44,7 +44,7 @@ func (s *Service) CreateOHLCVAs(ctx context.Context, req *pb.CreateOHLCVAsReques
 	return &emptypb.Empty{}, nil
 }
 
-func (s *Service) GetOHLCVAs(req *pb.GetOHLCVAsRequest, stream grpc.ServerStreamingServer[pb.OHLCVA]) error {
+func (s *Service) GetOHLCVs(req *pb.GetOHLCVsRequest, stream grpc.ServerStreamingServer[pb.OHLCV]) error {
 	if req.GetExchange() == "" || req.GetSymbol() == "" {
 		return status.Error(codes.InvalidArgument, "exchange and symbol are required")
 	}
@@ -66,7 +66,7 @@ func (s *Service) GetOHLCVAs(req *pb.GetOHLCVAsRequest, stream grpc.ServerStream
 		return status.Error(codes.InvalidArgument, "from must be earlier than before")
 	}
 
-	ohlcvas, err := s.model.GetOHLCVAs(stream.Context(), req.GetExchange(), req.GetSymbol(), intervalSecs, fromTime, beforeTime)
+	ohlcvs, err := s.model.GetOHLCVs(stream.Context(), req.GetExchange(), req.GetSymbol(), intervalSecs, fromTime, beforeTime)
 	if err != nil {
 		if errors.Is(err, quoteLib.ErrNotFound) {
 			return status.Error(codes.NotFound, "security not found")
@@ -74,7 +74,7 @@ func (s *Service) GetOHLCVAs(req *pb.GetOHLCVAsRequest, stream grpc.ServerStream
 		return status.Error(codes.Internal, err.Error())
 	}
 
-	for _, o := range ohlcvas {
+	for _, o := range ohlcvs {
 		if err := stream.Send(o); err != nil {
 			return err
 		}

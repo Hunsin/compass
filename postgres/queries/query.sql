@@ -19,32 +19,32 @@ SELECT * FROM securities WHERE exchange = @exchange;
 -- name: GetSecuritiesBySymbols :many
 SELECT * FROM securities WHERE exchange = @exchange AND symbol IN (@symbols);
 
--- name: InsertOHLCVAsPerMin :copyfrom
-INSERT INTO ohlcva_per_min (
-    sec_id, ts, open, high, low, close, volume, amount
+-- name: InsertOHLCVsPerMin :copyfrom
+INSERT INTO ohlcv_per_min (
+    sec_id, ts, open, high, low, close, volume
 ) VALUES (
-    @sec_id, @ts, @open, @high, @low, @close, @volume, @amount
+    @sec_id, @ts, @open, @high, @low, @close, @volume
 );
 
--- name: GetOHLCVAsPerMin :many
-SELECT * FROM ohlcva_per_min WHERE sec_id = @sec_id AND ts >= @start AND ts < @before ORDER BY ts;
+-- name: GetOHLCVsPerMin :many
+SELECT * FROM ohlcv_per_min WHERE sec_id = @sec_id AND ts >= @start AND ts < @before ORDER BY ts;
 
--- name: InsertOHLCVAsPer30Min :copyfrom
-INSERT INTO ohlcva_per_30min (
-    sec_id, ts, open, high, low, close, volume, amount
+-- name: InsertOHLCVsPer30Min :copyfrom
+INSERT INTO ohlcv_per_30min (
+    sec_id, ts, open, high, low, close, volume
 ) VALUES (
-    @sec_id, @ts, @open, @high, @low, @close, @volume, @amount
+    @sec_id, @ts, @open, @high, @low, @close, @volume
 );
 
--- name: GetOHLCVAsPer30Min :many
-SELECT * FROM ohlcva_per_30min WHERE sec_id = @sec_id AND ts >= @start AND ts < @before ORDER BY ts;
+-- name: GetOHLCVsPer30Min :many
+SELECT * FROM ohlcv_per_30min WHERE sec_id = @sec_id AND ts >= @start AND ts < @before ORDER BY ts;
 
--- name: InsertOHLCVAsPerDay :copyfrom
-INSERT INTO ohlcva_per_day (
-    sec_id, date, open, high, low, close, volume, amount
+-- name: InsertOHLCVsPerDay :copyfrom
+INSERT INTO ohlcv_per_day (
+    sec_id, date, open, high, low, close, volume
 ) VALUES (
-    @sec_id, @date, @open, @high, @low, @close, @volume, @amount
+    @sec_id, @date, @open, @high, @low, @close, @volume
 );
 
--- name: GetOHLCVAsPerDay :many
-SELECT * FROM ohlcva_per_day WHERE sec_id = @sec_id AND date >= @start AND date < @before ORDER BY date;
+-- name: GetOHLCVsPerDay :many
+SELECT * FROM ohlcv_per_day WHERE sec_id = @sec_id AND date >= @start AND date < @before ORDER BY date;

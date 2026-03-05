@@ -1,8 +1,8 @@
 """
-Upload 1-minute OHLCVA data from a CSV file to the Quote gRPC service.
+Upload 1-minute OHLCV data from a CSV file to the Quote gRPC service.
 
-CSV format (header: ts,Open,Close,High,Volume,Amount,Low):
-    2025-12-11 09:01:00,1510.0,1510.0,1515.0,2590,3910990000.0,1505.0
+CSV format (header: ts,Open,Close,High,Volume,Low):
+    2025-12-11 09:01:00,1510.0,1510.0,1515.0,2590,1505.0
 
 The CSV filename must follow the pattern <symbol>_<date>.csv.
 Timestamps in the CSV are treated as local exchange time and stored as-is.
@@ -37,7 +37,7 @@ INTERVAL_1M = duration_pb2.Duration(seconds=60)
 
 
 def parse_csv(path: Path) -> list:
-    """Read the CSV and return a list of OHLCVA proto messages."""
+    """Read the CSV and return a list of OHLCV proto messages."""
     rows = []
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
@@ -52,21 +52,20 @@ def parse_csv(path: Path) -> list:
             ts = timestamp_pb2.Timestamp()
             ts.FromDatetime(dt)
             rows.append(
-                quote_pb2.OHLCVA(
+                quote_pb2.OHLCV(
                     ts=ts,
                     open=float(row["Open"]),
                     high=float(row["High"]),
                     low=float(row["Low"]),
                     close=float(row["Close"]),
                     volume=int(row["Volume"]),
-                    amount=int(float(row["Amount"])),
                 )
             )
     return rows
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Upload OHLCVA CSV to Quote service")
+    parser = argparse.ArgumentParser(description="Upload OHLCV CSV to Quote service")
     parser.add_argument("csv_file", help="Path to the CSV file")
     parser.add_argument(
         "--server", default="localhost:50168", help="gRPC server address"
@@ -81,20 +80,20 @@ def main():
     # Derive symbol from filename: "2330_2025-12-11.csv" → "2330"
     symbol = csv_path.stem.split("_")[0]
 
-    ohlcva = parse_csv(csv_path)
-    print(f"Read {len(ohlcva)} rows from {csv_path.name}")
+    ohlcv = parse_csv(csv_path)
+    print(f"Read {len(ohlcv)} rows from {csv_path.name}")
 
     with grpc.insecure_channel(args.server) as channel:
         stub = quote_pb2_grpc.QuoteServiceStub(channel)
-        stub.CreateOHLCVAs(
-            quote_pb2.CreateOHLCVAsRequest(
+        stub.CreateOHLCVs(
+            quote_pb2.CreateOHLCVsRequest(
                 exchange=EXCHANGE,
                 symbol=symbol,
                 interval=INTERVAL_1M,
-                ohlcva=ohlcva,
+                ohlcv=ohlcv,
             )
         )
-    print(f"Uploaded {len(ohlcva)} 1m bars for {EXCHANGE}:{symbol}")
+    print(f"Uploaded {len(ohlcv)} 1m bars for {EXCHANGE}:{symbol}")
 
 
 if __name__ == "__main__":

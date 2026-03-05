@@ -8,7 +8,7 @@ import (
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
 )
 
-// Interval constants define supported OHLCVA time intervals in seconds.
+// Interval constants define supported OHLCV time intervals in seconds.
 const (
 	Interval1m  int64 = 60
 	Interval5m  int64 = 300
@@ -33,8 +33,8 @@ type Model interface {
 	// GetSecurities returns all securities for the given exchange abbreviation.
 	// Returns ErrNotFound if the exchange does not exist.
 	GetSecurities(ctx context.Context, exchange string) ([]*pb.Security, error)
-	// CreateOHLCVAs stores OHLCVA data. interval must be Interval1m or Interval1d.
-	CreateOHLCVAs(ctx context.Context, exchange, symbol string, interval int64, ohlcvas []*pb.OHLCVA) error
-	// GetOHLCVAs retrieves OHLCVA data aggregated to the requested interval.
-	GetOHLCVAs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCVA, error)
+	// CreateOHLCVs stores OHLCV data. interval must be Interval1m or Interval1d.
+	CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error
+	// GetOHLCVs retrieves OHLCV data aggregated to the requested interval.
+	GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error)
 }

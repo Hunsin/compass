@@ -21,24 +21,23 @@ message Security {
 }
 
 // Message representing a quote with OHLCV and date fields
-message OHLCVA {
+message OHLCV {
   google.protobuf.Timestamp ts = 1; // Timestamp of local time
   double open = 2; // Opening price
   double high = 3; // Highest price
   double low = 4; // Lowest price
   double close = 5; // Closing price
   uint64 volume = 6; // Volume traded
-  uint64 amount = 7; // Total amount
 }
 
-message CreateOHLCVAsRequest {
+message CreateOHLCVsRequest {
   string exchange = 1; // Exchange abbreviation
   string symbol = 2; // Security symbol
   google.protobuf.Duration interval = 3; // Accepted values: 1m, 1d
-  repeated OHLCVA ohlcva = 4;
+  repeated OHLCV ohlcv = 4;
 }
 
-message GetOHLCVAsRequest {
+message GetOHLCVsRequest {
   string exchange = 1;
   string symbol = 2;
   google.protobuf.Duration interval = 3; // Accepted values: 1m, 5m, 30m, 1h, 1d, 1w, 1M
@@ -53,6 +52,6 @@ service QuoteService {
   rpc CreateSecurities(stream Security) returns (google.protobuf.Empty);
   rpc GetSecurities(Exchange) returns (stream Security);
 
-  rpc CreateOHLCVAs(CreateOHLCVAsRequest) returns (google.protobuf.Empty);
-  rpc GetOHLCVAs(GetOHLCVAsRequest) returns (stream OHLCVA);
+  rpc CreateOHLCVs(CreateOHLCVsRequest) returns (google.protobuf.Empty);
+  rpc GetOHLCVs(GetOHLCVsRequest) returns (stream OHLCV);
 }

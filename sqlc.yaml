@@ -21,6 +21,6 @@ sql:
               import: github.com/google/uuid
               type: UUID
         rename:
-          ohlcva_per_min: OHLCVAperMin
-          ohlcva_per_30min: OHLCVAper30Min
-          ohlcva_per_day: OHLCVAperDay
+          ohlcv_per_min: OHLCVperMin
+          ohlcv_per_30min: OHLCVper30Min
+          ohlcv_per_day: OHLCVperDay

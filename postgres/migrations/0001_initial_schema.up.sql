@@ -13,7 +13,7 @@ CREATE TABLE securities (
     FOREIGN KEY (exchange) REFERENCES exchanges(abbr) ON DELETE CASCADE
 );
 
-CREATE TABLE ohlcva_per_min (
+CREATE TABLE ohlcv_per_min (
     sec_id    UUID NOT NULL,
     ts   TIMESTAMP NOT NULL,
     open   NUMERIC NOT NULL,
@@ -21,14 +21,13 @@ CREATE TABLE ohlcva_per_min (
     low    NUMERIC NOT NULL,
     close  NUMERIC NOT NULL,
     volume  BIGINT NOT NULL,
-    amount NUMERIC NOT NULL,
     UNIQUE (sec_id, ts),
     FOREIGN KEY (sec_id) REFERENCES securities(id) ON DELETE CASCADE
 ) PARTITION BY RANGE (ts);
 
-CREATE INDEX idx_ohlcva_per_min_sec_id_ts ON ohlcva_per_min (sec_id, ts);
+CREATE INDEX idx_ohlcv_per_min_sec_id_ts ON ohlcv_per_min (sec_id, ts);
 
-CREATE TABLE ohlcva_per_30min (
+CREATE TABLE ohlcv_per_30min (
     sec_id    UUID NOT NULL,
     ts   TIMESTAMP NOT NULL,
     open   NUMERIC NOT NULL,
@@ -36,14 +35,13 @@ CREATE TABLE ohlcva_per_30min (
     low    NUMERIC NOT NULL,
     close  NUMERIC NOT NULL,
     volume  BIGINT NOT NULL,
-    amount NUMERIC NOT NULL,
     UNIQUE (sec_id, ts),
     FOREIGN KEY (sec_id) REFERENCES securities(id) ON DELETE CASCADE
 ) PARTITION BY RANGE (ts);
 
-CREATE INDEX idx_ohlcva_per_30min_sec_id_ts ON ohlcva_per_30min (sec_id, ts);
+CREATE INDEX idx_ohlcv_per_30min_sec_id_ts ON ohlcv_per_30min (sec_id, ts);
 
-CREATE TABLE ohlcva_per_day (
+CREATE TABLE ohlcv_per_day (
     sec_id    UUID NOT NULL,
     date      DATE NOT NULL,
     open   NUMERIC NOT NULL,
@@ -51,9 +49,8 @@ CREATE TABLE ohlcva_per_day (
     low    NUMERIC NOT NULL,
     close  NUMERIC NOT NULL,
     volume  BIGINT NOT NULL,
-    amount NUMERIC NOT NULL,
     UNIQUE (sec_id, date),
     FOREIGN KEY (sec_id) REFERENCES securities(id) ON DELETE CASCADE
 ) PARTITION BY RANGE (date);
 
-CREATE INDEX idx_ohlcva_per_day_sec_id_date ON ohlcva_per_day (sec_id, date);
+CREATE INDEX idx_ohlcv_per_day_sec_id_date ON ohlcv_per_day (sec_id, date);

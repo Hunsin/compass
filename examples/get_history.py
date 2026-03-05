@@ -84,8 +84,8 @@ def main():
         stub = quote_pb2_grpc.QuoteServiceStub(channel)
         # "from" is a Python keyword; use **{} unpacking to pass it by name.
         bars = list(
-            stub.GetOHLCVAs(
-                quote_pb2.GetOHLCVAsRequest(**{
+            stub.GetOHLCVs(
+                quote_pb2.GetOHLCVsRequest(**{
                     "exchange": EXCHANGE,
                     "symbol": args.symbol,
                     "interval": INTERVALS[args.interval],
@@ -100,13 +100,13 @@ def main():
         return
 
     print(f"{len(bars)} {args.interval} bars for {EXCHANGE}:{SYMBOL} on {trading_date}\n")
-    print(f"{'Time':<8}  {'Open':>8}  {'High':>8}  {'Low':>8}  {'Close':>8}  {'Volume':>8}  {'Amount':>16}")
-    print("-" * 76)
+    print(f"{'Time':<8}  {'Open':>8}  {'High':>8}  {'Low':>8}  {'Close':>8}  {'Volume':>8}")
+    print("-" * 60)
     for bar in bars:
         ts_str = datetime.fromtimestamp(bar.ts.seconds, tz=timezone.utc).strftime("%H:%M:%S")
         print(
             f"{ts_str:<8}  {bar.open:>8.1f}  {bar.high:>8.1f}  {bar.low:>8.1f}"
-            f"  {bar.close:>8.1f}  {bar.volume:>8}  {bar.amount:>16,}"
+            f"  {bar.close:>8.1f}  {bar.volume:>8}"
         )
 
 

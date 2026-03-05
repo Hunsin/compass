@@ -112,7 +112,7 @@ func (d *DB) GetSecurities(ctx context.Context, exchange string) ([]*pb.Security
 	return result, nil
 }
 
-func (d *DB) CreateOHLCVAs(ctx context.Context, exchange, symbol string, interval int64, ohlcvas []*pb.OHLCVA) error {
+func (d *DB) CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error {
 	secs, err := d.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
 	if err != nil || len(secs) == 0 {
 		return ErrNotFound
@@ -120,15 +120,15 @@ func (d *DB) CreateOHLCVAs(ctx context.Context, exchange, symbol string, interva
 	secID := secs[0].ID
 
 	if interval == Interval1d {
-		return d.createOHLCVAsPerDay(ctx, secID, ohlcvas)
+		return d.createOHLCVsPerDay(ctx, secID, ohlcvs)
 	}
-	return d.createOHLCVAsPerMin(ctx, secID, ohlcvas)
+	return d.createOHLCVsPerMin(ctx, secID, ohlcvs)
 }
 
-func (d *DB) createOHLCVAsPerDay(ctx context.Context, secID pgtype.UUID, ohlcvas []*pb.OHLCVA) error {
-	params := make([]model.InsertOHLCVAsPerDayParams, len(ohlcvas))
-	for i, o := range ohlcvas {
-		params[i] = model.InsertOHLCVAsPerDayParams{
+func (d *DB) createOHLCVsPerDay(ctx context.Context, secID pgtype.UUID, ohlcvs []*pb.OHLCV) error {
+	params := make([]model.InsertOHLCVsPerDayParams, len(ohlcvs))
+	for i, o := range ohlcvs {
+		params[i] = model.InsertOHLCVsPerDayParams{
 			SecID:  secID,
 			Date:   pgtype.Date{Time: o.GetTs().AsTime(), Valid: true},
 			Open:   floatToNumeric(o.GetOpen()),
@@ -136,18 +136,17 @@ func (d *DB) createOHLCVAsPerDay(ctx context.Context, secID pgtype.UUID, ohlcvas
 			Low:    floatToNumeric(o.GetLow()),
 			Close:  floatToNumeric(o.GetClose()),
 			Volume: int64(o.GetVolume()),
-			Amount: uint64ToNumeric(o.GetAmount()),
 		}
 	}
-	_, err := d.queries.InsertOHLCVAsPerDay(ctx, params)
+	_, err := d.queries.InsertOHLCVsPerDay(ctx, params)
 	return err
 }
 
-func (d *DB) createOHLCVAsPerMin(ctx context.Context, secID pgtype.UUID, ohlcvas []*pb.OHLCVA) error {
-	minParams := make([]model.InsertOHLCVAsPerMinParams, len(ohlcvas))
-	for i, o := range ohlcvas {
+func (d *DB) createOHLCVsPerMin(ctx context.Context, secID pgtype.UUID, ohlcvs []*pb.OHLCV) error {
+	minParams := make([]model.InsertOHLCVsPerMinParams, len(ohlcvs))
+	for i, o := range ohlcvs {
 		t := o.GetTs().AsTime().Truncate(time.Minute)
-		minParams[i] = model.InsertOHLCVAsPerMinParams{
+		minParams[i] = model.InsertOHLCVsPerMinParams{
 			SecID:  secID,
 			Ts:     pgtype.Timestamp{Time: t, Valid: true},
 			Open:   floatToNumeric(o.GetOpen()),
@@ -155,20 +154,19 @@ func (d *DB) createOHLCVAsPerMin(ctx context.Context, secID pgtype.UUID, ohlcvas
 			Low:    floatToNumeric(o.GetLow()),
 			Close:  floatToNumeric(o.GetClose()),
 			Volume: int64(o.GetVolume()),
-			Amount: uint64ToNumeric(o.GetAmount()),
 		}
 	}
-	if _, err := d.queries.InsertOHLCVAsPerMin(ctx, minParams); err != nil {
+	if _, err := d.queries.InsertOHLCVsPerMin(ctx, minParams); err != nil {
 		return err
 	}
 
 	// Aggregate into 30-minute buckets and persist.
-	thirtyMin := aggregateOHLCVAs(ohlcvas, func(t time.Time) time.Time {
+	thirtyMin := aggregateOHLCVs(ohlcvs, func(t time.Time) time.Time {
 		return t.Truncate(30 * time.Minute)
 	})
-	thirtyMinParams := make([]model.InsertOHLCVAsPer30MinParams, len(thirtyMin))
+	thirtyMinParams := make([]model.InsertOHLCVsPer30MinParams, len(thirtyMin))
 	for i, o := range thirtyMin {
-		thirtyMinParams[i] = model.InsertOHLCVAsPer30MinParams{
+		thirtyMinParams[i] = model.InsertOHLCVsPer30MinParams{
 			SecID:  secID,
 			Ts:     pgtype.Timestamp{Time: o.GetTs().AsTime(), Valid: true},
 			Open:   floatToNumeric(o.GetOpen()),
@@ -176,14 +174,13 @@ func (d *DB) createOHLCVAsPerMin(ctx context.Context, secID pgtype.UUID, ohlcvas
 			Low:    floatToNumeric(o.GetLow()),
 			Close:  floatToNumeric(o.GetClose()),
 			Volume: int64(o.GetVolume()),
-			Amount: uint64ToNumeric(o.GetAmount()),
 		}
 	}
-	_, err := d.queries.InsertOHLCVAsPer30Min(ctx, thirtyMinParams)
+	_, err := d.queries.InsertOHLCVsPer30Min(ctx, thirtyMinParams)
 	return err
 }
 
-func (d *DB) GetOHLCVAs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCVA, error) {
+func (d *DB) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
 	secs, err := d.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
 	if err != nil || len(secs) == 0 {
 		return nil, ErrNotFound
@@ -192,65 +189,65 @@ func (d *DB) GetOHLCVAs(ctx context.Context, exchange, symbol string, interval i
 
 	switch interval {
 	case Interval1m, Interval5m:
-		return d.getOHLCVAsPerMin(ctx, secID, from, before, interval)
+		return d.getOHLCVsPerMin(ctx, secID, from, before, interval)
 	case Interval30m, Interval1h:
-		return d.getOHLCVAsPer30Min(ctx, secID, from, before, interval)
+		return d.getOHLCVsPer30Min(ctx, secID, from, before, interval)
 	default:
-		return d.getOHLCVAsPerDay(ctx, secID, from, before, interval)
+		return d.getOHLCVsPerDay(ctx, secID, from, before, interval)
 	}
 }
 
-func (d *DB) getOHLCVAsPerMin(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCVA, error) {
-	rows, err := d.queries.GetOHLCVAsPerMin(ctx, secID,
+func (d *DB) getOHLCVsPerMin(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+	rows, err := d.queries.GetOHLCVsPerMin(ctx, secID,
 		pgtype.Timestamp{Time: from, Valid: true},
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*pb.OHLCVA, len(rows))
+	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
-		result[i] = ohlcvaProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume, r.Amount)
+		result[i] = ohlcvProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume)
 	}
 	if interval == Interval5m {
-		return aggregateOHLCVAs(result, func(t time.Time) time.Time {
+		return aggregateOHLCVs(result, func(t time.Time) time.Time {
 			return t.Truncate(5 * time.Minute)
 		}), nil
 	}
 	return result, nil
 }
 
-func (d *DB) getOHLCVAsPer30Min(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCVA, error) {
-	rows, err := d.queries.GetOHLCVAsPer30Min(ctx, secID,
+func (d *DB) getOHLCVsPer30Min(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+	rows, err := d.queries.GetOHLCVsPer30Min(ctx, secID,
 		pgtype.Timestamp{Time: from, Valid: true},
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*pb.OHLCVA, len(rows))
+	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
-		result[i] = ohlcvaProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume, r.Amount)
+		result[i] = ohlcvProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume)
 	}
 	if interval == Interval1h {
-		return aggregateOHLCVAs(result, func(t time.Time) time.Time {
+		return aggregateOHLCVs(result, func(t time.Time) time.Time {
 			return t.Truncate(time.Hour)
 		}), nil
 	}
 	return result, nil
 }
 
-func (d *DB) getOHLCVAsPerDay(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCVA, error) {
-	rows, err := d.queries.GetOHLCVAsPerDay(ctx, secID,
+func (d *DB) getOHLCVsPerDay(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+	rows, err := d.queries.GetOHLCVsPerDay(ctx, secID,
 		pgtype.Date{Time: from, Valid: true},
 		pgtype.Date{Time: before, Valid: true},
 	)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*pb.OHLCVA, len(rows))
+	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
-		result[i] = ohlcvaProto(r.Date.Time, r.Open, r.High, r.Low, r.Close, r.Volume, r.Amount)
+		result[i] = ohlcvProto(r.Date.Time, r.Open, r.High, r.Low, r.Close, r.Volume)
 	}
 	if interval == Interval1d {
 		return result, nil
@@ -259,12 +256,12 @@ func (d *DB) getOHLCVAsPerDay(ctx context.Context, secID pgtype.UUID, from, befo
 	if interval == Interval1M {
 		bucketFn = monthBucket
 	}
-	return aggregateOHLCVAs(result, bucketFn), nil
+	return aggregateOHLCVs(result, bucketFn), nil
 }
 
-// aggregateOHLCVAs groups OHLCVA rows by bucket key and aggregates them.
+// aggregateOHLCVs groups OHLCV rows by bucket key and aggregates them.
 // Rows must be sorted by time ascending.
-func aggregateOHLCVAs(rows []*pb.OHLCVA, bucket func(time.Time) time.Time) []*pb.OHLCVA {
+func aggregateOHLCVs(rows []*pb.OHLCV, bucket func(time.Time) time.Time) []*pb.OHLCV {
 	type agg struct {
 		ts     time.Time
 		open   float64
@@ -272,7 +269,6 @@ func aggregateOHLCVAs(rows []*pb.OHLCVA, bucket func(time.Time) time.Time) []*pb
 		low    float64
 		close  float64
 		volume uint64
-		amount uint64
 	}
 
 	buckets := make(map[time.Time]*agg)
@@ -288,7 +284,6 @@ func aggregateOHLCVAs(rows []*pb.OHLCVA, bucket func(time.Time) time.Time) []*pb
 				low:    row.GetLow(),
 				close:  row.GetClose(),
 				volume: row.GetVolume(),
-				amount: row.GetAmount(),
 			}
 			order = append(order, k)
 		} else {
@@ -300,11 +295,10 @@ func aggregateOHLCVAs(rows []*pb.OHLCVA, bucket func(time.Time) time.Time) []*pb
 			}
 			b.close = row.GetClose()
 			b.volume += row.GetVolume()
-			b.amount += row.GetAmount()
 		}
 	}
 
-	result := make([]*pb.OHLCVA, 0, len(order))
+	result := make([]*pb.OHLCV, 0, len(order))
 	for _, k := range order {
 		b := buckets[k]
 		o := b.open
@@ -312,15 +306,13 @@ func aggregateOHLCVAs(rows []*pb.OHLCVA, bucket func(time.Time) time.Time) []*pb
 		l := b.low
 		c := b.close
 		v := b.volume
-		a := b.amount
-		result = append(result, &pb.OHLCVA{
+		result = append(result, &pb.OHLCV{
 			Ts:     timestamppb.New(k),
 			Open:   &o,
 			High:   &h,
 			Low:    &l,
 			Close:  &c,
 			Volume: &v,
-			Amount: &a,
 		})
 	}
 	return result
@@ -341,22 +333,20 @@ func monthBucket(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 }
 
-// ohlcvaProto constructs a *pb.OHLCVA from DB row fields.
-func ohlcvaProto(ts time.Time, open, high, low, close_ pgtype.Numeric, volume int64, amount pgtype.Numeric) *pb.OHLCVA {
+// ohlcvProto constructs a *pb.OHLCV from DB row fields.
+func ohlcvProto(ts time.Time, open, high, low, close_ pgtype.Numeric, volume int64) *pb.OHLCV {
 	o := numericToFloat(open)
 	h := numericToFloat(high)
 	l := numericToFloat(low)
 	c := numericToFloat(close_)
 	v := uint64(volume)
-	a := numericToUint64(amount)
-	return &pb.OHLCVA{
+	return &pb.OHLCV{
 		Ts:     timestamppb.New(ts),
 		Open:   &o,
 		High:   &h,
 		Low:    &l,
 		Close:  &c,
 		Volume: &v,
-		Amount: &a,
 	}
 }
 
@@ -384,12 +374,4 @@ func numericToFloat(n pgtype.Numeric) float64 {
 		f *= math.Pow10(int(n.Exp))
 	}
 	return f
-}
-
-func uint64ToNumeric(u uint64) pgtype.Numeric {
-	return pgtype.Numeric{Int: new(big.Int).SetUint64(u), Exp: 0, Valid: true}
-}
-
-func numericToUint64(n pgtype.Numeric) uint64 {
-	return uint64(math.Round(numericToFloat(n)))
 }
