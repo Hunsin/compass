@@ -15,6 +15,13 @@ sql:
         query_parameter_limit: 3
         omit_unused_structs: true
         overrides: &overrides
+          # Declare overrides with both nullable and non-nullalbe versions.
+          # See: https://docs.sqlc.dev/en/stable/howto/overrides.html
+          - db_type: uuid
+            nullable: false
+            go_type:
+              import: github.com/google/uuid
+              type: UUID
           - db_type: uuid
             nullable: true
             go_type:

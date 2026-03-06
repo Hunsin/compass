@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -125,7 +126,7 @@ func (d *DB) CreateOHLCVs(ctx context.Context, exchange, symbol string, interval
 	return d.createOHLCVsPerMin(ctx, secID, ohlcvs)
 }
 
-func (d *DB) createOHLCVsPerDay(ctx context.Context, secID pgtype.UUID, ohlcvs []*pb.OHLCV) error {
+func (d *DB) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
 	params := make([]model.InsertOHLCVsPerDayParams, len(ohlcvs))
 	for i, o := range ohlcvs {
 		params[i] = model.InsertOHLCVsPerDayParams{
@@ -142,7 +143,7 @@ func (d *DB) createOHLCVsPerDay(ctx context.Context, secID pgtype.UUID, ohlcvs [
 	return err
 }
 
-func (d *DB) createOHLCVsPerMin(ctx context.Context, secID pgtype.UUID, ohlcvs []*pb.OHLCV) error {
+func (d *DB) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
 	minParams := make([]model.InsertOHLCVsPerMinParams, len(ohlcvs))
 	for i, o := range ohlcvs {
 		t := o.GetTs().AsTime().Truncate(time.Minute)
@@ -197,7 +198,7 @@ func (d *DB) GetOHLCVs(ctx context.Context, exchange, symbol string, interval in
 	}
 }
 
-func (d *DB) getOHLCVsPerMin(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+func (d *DB) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
 	rows, err := d.queries.GetOHLCVsPerMin(ctx, secID,
 		pgtype.Timestamp{Time: from, Valid: true},
 		pgtype.Timestamp{Time: before, Valid: true},
@@ -217,7 +218,7 @@ func (d *DB) getOHLCVsPerMin(ctx context.Context, secID pgtype.UUID, from, befor
 	return result, nil
 }
 
-func (d *DB) getOHLCVsPer30Min(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+func (d *DB) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
 	rows, err := d.queries.GetOHLCVsPer30Min(ctx, secID,
 		pgtype.Timestamp{Time: from, Valid: true},
 		pgtype.Timestamp{Time: before, Valid: true},
@@ -237,7 +238,7 @@ func (d *DB) getOHLCVsPer30Min(ctx context.Context, secID pgtype.UUID, from, bef
 	return result, nil
 }
 
-func (d *DB) getOHLCVsPerDay(ctx context.Context, secID pgtype.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+func (d *DB) getOHLCVsPerDay(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
 	rows, err := d.queries.GetOHLCVsPerDay(ctx, secID,
 		pgtype.Date{Time: from, Valid: true},
 		pgtype.Date{Time: before, Valid: true},
