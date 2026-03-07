@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	quoteLib "github.com/Hunsin/compass/lib/quote"
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
 // mockOHLCVStream implements grpc.ServerStreamingServer[pb.OHLCV] for tests.

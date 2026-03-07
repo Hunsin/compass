@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	quoteLib "github.com/Hunsin/compass/lib/quote"
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
 // mockSecuritySendStream implements grpc.ServerStreamingServer[pb.Security] for tests.

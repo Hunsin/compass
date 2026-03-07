@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "protocols" / "gen" / "pyt
 
 import grpc
 from google.protobuf import duration_pb2, timestamp_pb2
-from quote import quote_pb2, quote_pb2_grpc
+from quote.v1 import quote_pb2, quote_pb2_grpc
 
 EXCHANGE = "twse"
 SYMBOL = "2330"
@@ -100,12 +100,12 @@ def main():
         return
 
     print(f"{len(bars)} {args.interval} bars for {EXCHANGE}:{SYMBOL} on {trading_date}\n")
-    print(f"{'Time':<8}  {'Open':>8}  {'High':>8}  {'Low':>8}  {'Close':>8}  {'Volume':>8}")
-    print("-" * 60)
+    print(f"{'Time':<19}  {'Open':>8}  {'High':>8}  {'Low':>8}  {'Close':>8}  {'Volume':>8}")
+    print("-" * 71)
     for bar in bars:
-        ts_str = datetime.fromtimestamp(bar.ts.seconds, tz=timezone.utc).strftime("%H:%M:%S")
+        ts_str = datetime.fromtimestamp(bar.ts.seconds, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         print(
-            f"{ts_str:<8}  {bar.open:>8.1f}  {bar.high:>8.1f}  {bar.low:>8.1f}"
+            f"{ts_str:<19}  {bar.open:>8.1f}  {bar.high:>8.1f}  {bar.low:>8.1f}"
             f"  {bar.close:>8.1f}  {bar.volume:>8}"
         )
 

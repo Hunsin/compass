@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
 // Interval constants define supported OHLCV time intervals in seconds.

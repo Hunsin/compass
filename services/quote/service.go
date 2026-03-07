@@ -2,7 +2,7 @@ package quote
 
 import (
 	quoteLib "github.com/Hunsin/compass/lib/quote"
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
 // Service implements the gRPC QuoteService.

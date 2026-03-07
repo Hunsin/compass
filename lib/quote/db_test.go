@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Hunsin/compass/postgres/gen/model"
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
 // testSecID is a fixed UUID used as a security ID in DB tests.

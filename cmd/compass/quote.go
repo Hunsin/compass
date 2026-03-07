@@ -11,7 +11,7 @@ import (
 
 	"github.com/Hunsin/compass/lib/flags"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 	quoteSvc "github.com/Hunsin/compass/services/quote"
 )
 

@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Hunsin/compass/postgres/gen/model"
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
 // DB is a PostgreSQL-backed implementation of Model.

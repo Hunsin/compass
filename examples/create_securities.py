@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "protocols" / "gen" / "pyt
 
 import grpc
 from google.protobuf import empty_pb2
-from quote import quote_pb2, quote_pb2_grpc
+from quote.v1 import quote_pb2, quote_pb2_grpc
 
 DEFAULT_SERVER = "localhost:50168"
 

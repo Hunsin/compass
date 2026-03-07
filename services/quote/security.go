@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	quoteLib "github.com/Hunsin/compass/lib/quote"
-	pb "github.com/Hunsin/compass/protocols/gen/go/quote"
+	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
 func (s *Service) CreateSecurities(stream grpc.ClientStreamingServer[pb.Security, emptypb.Empty]) error {

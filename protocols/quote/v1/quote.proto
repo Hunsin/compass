@@ -1,12 +1,12 @@
 edition = "2023";
 
-package quote;
+package quote.v1;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/Hunsin/compass/protocols/gen/go/quote";
+option go_package = "github.com/Hunsin/compass/protocols/gen/go/quote/v1;quote";
 
 message Exchange {
   string abbr = 1; // The lower case abbreviation of the exchange, e.g., "nyse"

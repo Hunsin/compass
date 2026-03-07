@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "protocols" / "gen" / "pyt
 
 import grpc
 from google.protobuf import duration_pb2, timestamp_pb2
-from quote import quote_pb2, quote_pb2_grpc
+from quote.v1 import quote_pb2, quote_pb2_grpc
 
 EXCHANGE = "twse"
 INTERVAL_1M = duration_pb2.Duration(seconds=60)
