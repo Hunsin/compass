@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -25,8 +24,8 @@ type DB struct {
 }
 
 // Connect establishes a DB connection and returns a Model.
-func Connect(conn *pgx.Conn) Model {
-	return &DB{queries: model.New(conn)}
+func Connect(db model.DBTX) Model {
+	return &DB{queries: model.New(db)}
 }
 
 func (d *DB) CreateExchange(ctx context.Context, ex *pb.Exchange) error {

@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 
@@ -21,15 +21,15 @@ func quoteCommand() *cli.Command {
 		Usage: "Start the Quote gRPC service",
 		Flags: []cli.Flag{&flags.PostgresURL, &flags.ListenAddr},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			conn, err := pgx.Connect(ctx, cmd.String("postgres-url"))
+			pool, err := pgxpool.New(ctx, cmd.String("postgres-url"))
 			if err != nil {
 				return err
 			}
-			defer conn.Close(ctx)
+			defer pool.Close()
 
 			childCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			if err := conn.Ping(childCtx); err != nil {
+			if err := pool.Ping(childCtx); err != nil {
 				return err
 			}
 
@@ -39,7 +39,7 @@ func quoteCommand() *cli.Command {
 			}
 
 			srv := grpc.NewServer()
-			model := quoteLib.Connect(conn)
+			model := quoteLib.Connect(pool)
 			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
 
 			return srv.Serve(lis)
