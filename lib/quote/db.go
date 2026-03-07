@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -129,7 +130,7 @@ func (d *DB) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs []*
 	for i, o := range ohlcvs {
 		params[i] = model.InsertOHLCVsPerDayParams{
 			SecID:  secID,
-			Date:   pgtype.Date{Time: o.GetTs().AsTime(), Valid: true},
+			Date:   civil.DateOf(o.GetTs().AsTime()),
 			Open:   floatToNumeric(o.GetOpen()),
 			High:   floatToNumeric(o.GetHigh()),
 			Low:    floatToNumeric(o.GetLow()),
@@ -240,15 +241,15 @@ func (d *DB) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, befor
 
 func (d *DB) getOHLCVsPerDay(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
 	rows, err := d.queries.GetOHLCVsPerDay(ctx, secID,
-		pgtype.Date{Time: from, Valid: true},
-		pgtype.Date{Time: before, Valid: true},
+		civil.DateOf(from),
+		civil.DateOf(before),
 	)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
-		result[i] = ohlcvProto(r.Date.Time, r.Open, r.High, r.Low, r.Close, r.Volume)
+		result[i] = ohlcvProto(r.Date.In(time.UTC), r.Open, r.High, r.Low, r.Close, r.Volume)
 	}
 	if interval == Interval1d {
 		return result, nil

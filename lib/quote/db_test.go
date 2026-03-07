@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -464,11 +465,11 @@ func TestDB_GetOHLCVs(t *testing.T) {
 		db, q := newTestDB(t)
 		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(secs, nil)
 		q.EXPECT().GetOHLCVsPerDay(ctx, testSecID,
-			pgtype.Date{Time: from, Valid: true},
-			pgtype.Date{Time: before, Valid: true},
+			civil.DateOf(from),
+			civil.DateOf(before),
 		).Return([]model.OHLCVperDay{
 			{
-				Date:   pgtype.Date{Time: timeOf("2026-01-02 00:00:00"), Valid: true},
+				Date:   civil.Date{Year: 2026, Month: time.January, Day: 2},
 				Open:   floatToNumeric(232.0),
 				High:   floatToNumeric(233.5),
 				Low:    floatToNumeric(229.0),
@@ -490,11 +491,11 @@ func TestDB_GetOHLCVs(t *testing.T) {
 		// Jan 5 and Jan 6 fall in the same ISO week (starting Jan 5).
 		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(secs, nil)
 		q.EXPECT().GetOHLCVsPerDay(ctx, testSecID,
-			pgtype.Date{Time: from, Valid: true},
-			pgtype.Date{Time: before, Valid: true},
+			civil.DateOf(from),
+			civil.DateOf(before),
 		).Return([]model.OHLCVperDay{
-			{Date: pgtype.Date{Time: timeOf("2026-01-05 00:00:00"), Valid: true}, Open: floatToNumeric(234.5), High: floatToNumeric(236.0), Low: floatToNumeric(233.5), Close: floatToNumeric(234.5), Volume: 64_697_110},
-			{Date: pgtype.Date{Time: timeOf("2026-01-06 00:00:00"), Valid: true}, Open: floatToNumeric(237.0), High: floatToNumeric(239.0), Low: floatToNumeric(232.5), Close: floatToNumeric(236.0), Volume: 68_919_645},
+			{Date: civil.DateOf(timeOf("2026-01-05")), Open: floatToNumeric(234.5), High: floatToNumeric(236.0), Low: floatToNumeric(233.5), Close: floatToNumeric(234.5), Volume: 64_697_110},
+			{Date: civil.DateOf(timeOf("2026-01-06")), Open: floatToNumeric(237.0), High: floatToNumeric(239.0), Low: floatToNumeric(232.5), Close: floatToNumeric(236.0), Volume: 68_919_645},
 		}, nil)
 		got, err := db.GetOHLCVs(ctx, exch, sym, Interval1w, from, before)
 		if err != nil {

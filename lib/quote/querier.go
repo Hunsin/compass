@@ -3,6 +3,7 @@ package quote
 import (
 	"context"
 
+	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -14,9 +15,9 @@ import (
 type Querier interface {
 	GetExchange(ctx context.Context, abbr string) (model.Exchange, error)
 	GetExchanges(ctx context.Context) ([]model.Exchange, error)
-	GetOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, start pgtype.Timestamp, before pgtype.Timestamp) ([]model.OHLCVper30Min, error)
-	GetOHLCVsPerDay(ctx context.Context, secID uuid.UUID, start pgtype.Date, before pgtype.Date) ([]model.OHLCVperDay, error)
-	GetOHLCVsPerMin(ctx context.Context, secID uuid.UUID, start pgtype.Timestamp, before pgtype.Timestamp) ([]model.OHLCVperMin, error)
+	GetOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, start, before pgtype.Timestamp) ([]model.OHLCVper30Min, error)
+	GetOHLCVsPerDay(ctx context.Context, secID uuid.UUID, start, before civil.Date) ([]model.OHLCVperDay, error)
+	GetOHLCVsPerMin(ctx context.Context, secID uuid.UUID, start, before pgtype.Timestamp) ([]model.OHLCVperMin, error)
 	GetSecurities(ctx context.Context, exchange string) ([]model.Security, error)
 	GetSecuritiesBySymbols(ctx context.Context, exchange string, symbols string) ([]model.Security, error)
 	InsertExchange(ctx context.Context, abbr string, name string, timezone string) error

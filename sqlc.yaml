@@ -17,16 +17,22 @@ sql:
         overrides: &overrides
           # Declare overrides with both nullable and non-nullalbe versions.
           # See: https://docs.sqlc.dev/en/stable/howto/overrides.html
-          - db_type: uuid
+          - &override_uuid
+            db_type: uuid
             nullable: false
             go_type:
               import: github.com/google/uuid
               type: UUID
-          - db_type: uuid
+          - <<: *override_uuid
             nullable: true
+          - &override_date
+            db_type: date
+            nullable: false
             go_type:
-              import: github.com/google/uuid
-              type: UUID
+              import: cloud.google.com/go/civil
+              type: Date
+          - <<: *override_date
+            nullable: true
         rename:
           ohlcv_per_min: OHLCVperMin
           ohlcv_per_30min: OHLCVper30Min
