@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,7 +19,7 @@ import (
 
 // DB is a PostgreSQL-backed implementation of Model.
 type DB struct {
-	queries *model.Queries
+	queries Querier
 }
 
 // Connect establishes a DB connection and returns a Model.
@@ -192,8 +191,10 @@ func (d *DB) GetOHLCVs(ctx context.Context, exchange, symbol string, interval in
 		return d.getOHLCVsPerMin(ctx, secID, from, before, interval)
 	case Interval30m, Interval1h:
 		return d.getOHLCVsPer30Min(ctx, secID, from, before, interval)
-	default:
+	case Interval1d, Interval1w, Interval1M:
 		return d.getOHLCVsPerDay(ctx, secID, from, before, interval)
+	default:
+		return nil, ErrInvalidArgument
 	}
 }
 
@@ -278,7 +279,7 @@ func aggregateOHLCVs(rows []*pb.OHLCV, bucket func(time.Time) time.Time) []*pb.O
 		k := bucket(row.GetTs().AsTime())
 		if b, ok := buckets[k]; !ok {
 			buckets[k] = &agg{
-				ts:     k,
+				ts:     row.GetTs().AsTime(),
 				open:   row.GetOpen(),
 				high:   row.GetHigh(),
 				low:    row.GetLow(),
@@ -307,7 +308,7 @@ func aggregateOHLCVs(rows []*pb.OHLCV, bucket func(time.Time) time.Time) []*pb.O
 		c := b.close
 		v := b.volume
 		result = append(result, &pb.OHLCV{
-			Ts:     timestamppb.New(k),
+			Ts:     timestamppb.New(b.ts),
 			Open:   &o,
 			High:   &h,
 			Low:    &l,
@@ -351,18 +352,13 @@ func ohlcvProto(ts time.Time, open, high, low, close_ pgtype.Numeric, volume int
 }
 
 func floatToNumeric(f float64) pgtype.Numeric {
+	var n pgtype.Numeric
+
 	s := strconv.FormatFloat(f, 'f', -1, 64)
-	dotIdx := strings.IndexByte(s, '.')
-	var intStr string
-	var exp int32
-	if dotIdx == -1 {
-		intStr = s
-	} else {
-		intStr = s[:dotIdx] + s[dotIdx+1:]
-		exp = -int32(len(s) - dotIdx - 1)
+	if err := n.Scan(s); err != nil {
+		panic("failed to convert float to numeric: " + err.Error())
 	}
-	bigInt, _ := new(big.Int).SetString(intStr, 10)
-	return pgtype.Numeric{Int: bigInt, Exp: exp, Valid: true}
+	return n
 }
 
 func numericToFloat(n pgtype.Numeric) float64 {

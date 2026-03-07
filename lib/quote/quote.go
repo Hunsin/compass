@@ -25,6 +25,8 @@ var ErrNotFound = errors.New("not found")
 // ErrAlreadyExists is returned when an entity with the same key already exists.
 var ErrAlreadyExists = errors.New("already exists")
 
+var ErrInvalidArgument = errors.New("invalid argument")
+
 // Model defines the domain operations for the Quote service.
 type Model interface {
 	CreateExchange(ctx context.Context, ex *pb.Exchange) error
@@ -34,7 +36,9 @@ type Model interface {
 	// Returns ErrNotFound if the exchange does not exist.
 	GetSecurities(ctx context.Context, exchange string) ([]*pb.Security, error)
 	// CreateOHLCVs stores OHLCV data. interval must be Interval1m or Interval1d.
+	// Returns ErrInvalidArgument if the interval is not supported.
 	CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error
 	// GetOHLCVs retrieves OHLCV data aggregated to the requested interval.
+	// Returns ErrInvalidArgument if the interval is not supported.
 	GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error)
 }
