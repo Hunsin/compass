@@ -4,7 +4,6 @@ filename: '{{.SrcPackageName}}_mocks.go'
 force-file-write: true
 formatter: goimports
 generate: true
-include-auto-generated: false
 log-level: info
 structname: '{{.Mock}}{{.InterfaceName}}'
 pkgname: '{{.SrcPackageName}}'
@@ -14,5 +13,11 @@ template: testify
 template-schema: '{{.Template}}.schema.json'
 packages:
   github.com/Hunsin/compass/lib/quote:
+    interfaces:
+      Model:
+  github.com/Hunsin/compass/postgres/gen/model:
     config:
-      all: true
+      include-auto-generated: true
+    interfaces:
+      Querier:
+      

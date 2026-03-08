@@ -12,7 +12,7 @@ sql:
         out: postgres/gen/model
         sql_package: pgx/v5
         sql_driver: github.com/jackc/pgx/v5
-        query_parameter_limit: 3
+        emit_interface: true
         omit_unused_structs: true
         overrides: &overrides
           # Declare overrides with both nullable and non-nullalbe versions.
@@ -33,6 +33,7 @@ sql:
               type: Date
           - <<: *override_date
             nullable: true
+        query_parameter_limit: 3
         rename:
           ohlcv_per_min: OHLCVperMin
           ohlcv_per_30min: OHLCVper30Min

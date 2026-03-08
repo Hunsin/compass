@@ -20,10 +20,10 @@ import (
 // testSecID is a fixed UUID used as a security ID in DB tests.
 var testSecID = uuid.New()
 
-func newTestDB(t *testing.T) (*DB, *MockQuerier) {
+func newTestDB(t *testing.T) (*store, *model.MockQuerier) {
 	t.Helper()
-	q := NewMockQuerier(t)
-	return &DB{queries: q}, q
+	q := model.NewMockQuerier(t)
+	return &store{queries: q}, q
 }
 
 // timeOf parse the timestamp in either "2006-01-02 15:04:05" or "2006-01-02" format.

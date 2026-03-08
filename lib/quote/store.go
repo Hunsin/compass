@@ -18,18 +18,18 @@ import (
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
-// DB is a PostgreSQL-backed implementation of Model.
-type DB struct {
-	queries Querier
+// store is a PostgreSQL-backed implementation of Model.
+type store struct {
+	queries model.Querier
 }
 
 // Connect establishes a DB connection and returns a Model.
 func Connect(db model.DBTX) Model {
-	return &DB{queries: model.New(db)}
+	return &store{queries: model.New(db)}
 }
 
-func (d *DB) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
-	if err := d.queries.InsertExchange(ctx, ex.GetAbbr(), ex.GetName(), ex.GetTimezone()); err != nil {
+func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
+	if err := s.queries.InsertExchange(ctx, ex.GetAbbr(), ex.GetName(), ex.GetTimezone()); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return ErrAlreadyExists
@@ -39,8 +39,8 @@ func (d *DB) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
 	return nil
 }
 
-func (d *DB) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
-	rows, err := d.queries.GetExchanges(ctx)
+func (s *store) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
+	rows, err := s.queries.GetExchanges(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +54,8 @@ func (d *DB) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
 	return result, nil
 }
 
-func (d *DB) CreateSecurities(ctx context.Context, securities []*pb.Security) error {
-	exchanges, err := d.queries.GetExchanges(ctx)
+func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security) error {
+	exchanges, err := s.queries.GetExchanges(ctx)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (d *DB) CreateSecurities(ctx context.Context, securities []*pb.Security) er
 		})
 	}
 
-	if _, err := d.queries.InsertSecurities(ctx, params); err != nil {
+	if _, err := s.queries.InsertSecurities(ctx, params); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			switch pgErr.Code {
@@ -91,13 +91,13 @@ func (d *DB) CreateSecurities(ctx context.Context, securities []*pb.Security) er
 	return nil
 }
 
-func (d *DB) GetSecurities(ctx context.Context, exchange string) ([]*pb.Security, error) {
-	rows, err := d.queries.GetSecurities(ctx, exchange)
+func (s *store) GetSecurities(ctx context.Context, exchange string) ([]*pb.Security, error) {
+	rows, err := s.queries.GetSecurities(ctx, exchange)
 	if err != nil {
 		return nil, err
 	}
 	if len(rows) == 0 {
-		if _, err := d.queries.GetExchange(ctx, exchange); err != nil {
+		if _, err := s.queries.GetExchange(ctx, exchange); err != nil {
 			return nil, ErrNotFound
 		}
 		return nil, nil
@@ -112,20 +112,20 @@ func (d *DB) GetSecurities(ctx context.Context, exchange string) ([]*pb.Security
 	return result, nil
 }
 
-func (d *DB) CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error {
-	secs, err := d.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
+func (s *store) CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error {
+	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
 	if err != nil || len(secs) == 0 {
 		return ErrNotFound
 	}
 	secID := secs[0].ID
 
 	if interval == Interval1d {
-		return d.createOHLCVsPerDay(ctx, secID, ohlcvs)
+		return s.createOHLCVsPerDay(ctx, secID, ohlcvs)
 	}
-	return d.createOHLCVsPerMin(ctx, secID, ohlcvs)
+	return s.createOHLCVsPerMin(ctx, secID, ohlcvs)
 }
 
-func (d *DB) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
+func (s *store) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
 	params := make([]model.InsertOHLCVsPerDayParams, len(ohlcvs))
 	for i, o := range ohlcvs {
 		params[i] = model.InsertOHLCVsPerDayParams{
@@ -138,11 +138,11 @@ func (d *DB) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs []*
 			Volume: int64(o.GetVolume()),
 		}
 	}
-	_, err := d.queries.InsertOHLCVsPerDay(ctx, params)
+	_, err := s.queries.InsertOHLCVsPerDay(ctx, params)
 	return err
 }
 
-func (d *DB) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
+func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
 	minParams := make([]model.InsertOHLCVsPerMinParams, len(ohlcvs))
 	for i, o := range ohlcvs {
 		t := o.GetTs().AsTime().Truncate(time.Minute)
@@ -156,7 +156,7 @@ func (d *DB) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs []*
 			Volume: int64(o.GetVolume()),
 		}
 	}
-	if _, err := d.queries.InsertOHLCVsPerMin(ctx, minParams); err != nil {
+	if _, err := s.queries.InsertOHLCVsPerMin(ctx, minParams); err != nil {
 		return err
 	}
 
@@ -176,12 +176,12 @@ func (d *DB) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs []*
 			Volume: int64(o.GetVolume()),
 		}
 	}
-	_, err := d.queries.InsertOHLCVsPer30Min(ctx, thirtyMinParams)
-	return err
+	_, err := s.queries.InsertOHLCVsPer30Min(ctx, thirtyMinParams)
+			return err
 }
 
-func (d *DB) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
-	secs, err := d.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
+func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
+	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
 	if err != nil || len(secs) == 0 {
 		return nil, ErrNotFound
 	}
@@ -189,18 +189,18 @@ func (d *DB) GetOHLCVs(ctx context.Context, exchange, symbol string, interval in
 
 	switch interval {
 	case Interval1m, Interval5m:
-		return d.getOHLCVsPerMin(ctx, secID, from, before, interval)
+		return s.getOHLCVsPerMin(ctx, secID, from, before, interval)
 	case Interval30m, Interval1h:
-		return d.getOHLCVsPer30Min(ctx, secID, from, before, interval)
+		return s.getOHLCVsPer30Min(ctx, secID, from, before, interval)
 	case Interval1d, Interval1w, Interval1M:
-		return d.getOHLCVsPerDay(ctx, secID, from, before, interval)
+		return s.getOHLCVsPerDay(ctx, secID, from, before, interval)
 	default:
 		return nil, ErrInvalidArgument
 	}
 }
 
-func (d *DB) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
-	rows, err := d.queries.GetOHLCVsPerMin(ctx, secID,
+func (s *store) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+	rows, err := s.queries.GetOHLCVsPerMin(ctx, secID,
 		pgtype.Timestamp{Time: from, Valid: true},
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
@@ -219,8 +219,8 @@ func (d *DB) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, before 
 	return result, nil
 }
 
-func (d *DB) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
-	rows, err := d.queries.GetOHLCVsPer30Min(ctx, secID,
+func (s *store) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+	rows, err := s.queries.GetOHLCVsPer30Min(ctx, secID,
 		pgtype.Timestamp{Time: from, Valid: true},
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
@@ -239,8 +239,8 @@ func (d *DB) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, befor
 	return result, nil
 }
 
-func (d *DB) getOHLCVsPerDay(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
-	rows, err := d.queries.GetOHLCVsPerDay(ctx, secID,
+func (s *store) getOHLCVsPerDay(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+	rows, err := s.queries.GetOHLCVsPerDay(ctx, secID,
 		civil.DateOf(from),
 		civil.DateOf(before),
 	)
