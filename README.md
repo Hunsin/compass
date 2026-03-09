@@ -44,7 +44,7 @@ make test-all # All tests including integration tests
 
 ### Project Structure
 
-```
+```text
 .
 ├── cmd/                 # Application entry point
 ├── dockerfiles/         # Docker images
@@ -64,6 +64,7 @@ make test-all # All tests including integration tests
 ### Testing
 
 Before running tests, make sure the generated code and mocks are up to date:
+
 ```sh
 make sqlc
 make proto
@@ -71,11 +72,13 @@ make mock # depends on sqlc, must run after it
 ```
 
 Tests are run inside the dev container:
+
 ```sh
 make test
 ```
 
 To run integration tests, make sure the third-party services are running (see `make start`):
+
 ```sh
 make test-all
 ```
