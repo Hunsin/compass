@@ -6,39 +6,19 @@
 - git
 - Make
 
-## Quick Start
-
-1. Start the services:
-```bash
-make start
-```
-
-2. Run database migrations:
-```bash
-make migrate-up
-```
-
-3. Generate Go code from SQL:
-```bash
-make sqlc
-```
-
 ## Development
 
 ### Common Commands
 
-```bash
-# Start all services
+```sh
+# Start third-party services
 make start
 
 # Stop services
 make stop
 
-# Stop services and remove images
+# Stop services and remove associated volumes, images and networks
 make clean
-
-# Access development container
-make go
 
 # Access PostgreSQL CLI
 make psql
@@ -53,22 +33,51 @@ make sqlc
 
 # Generate Go and Python code from Protobuf definitions
 make proto
+
+# Generate mock implementations
+make mock
+
+# Run tests
+make test     # Unit tests
+make test-all # All tests including integration tests
 ```
 
-## Project Structure
+### Project Structure
 
 ```
 .
+├── cmd/                 # Application entry point
 ├── dockerfiles/         # Docker images
+├── lib/                 # Domain model layer
 ├── postgres/
 │   ├── gen/             # Generated Go code from SQL queries
 │   ├── migrations/      # Database migrations
 │   └── queries/         # SQL queries for sqlc
-└── protocols/
-    ├── gen/
-    │   ├── go/          # Generated Go code from Protobuf definitions
-    │   └── python/      # Generated Python code from Protobuf definitions
-    └── quote/           # Protobuf definitions for the quote service
+├── protocols/
+│   ├── gen/             # Generated Go and Python code from Protobuf definitions
+│   └── quote/           # Protobuf definitions for the quote service
+└── services/            # gRPC service controllers
+```
+
+**Note:** Do not commit generated code. The outputs of `make sqlc`, `make mock`, and `make proto` are regenerated as needed and should not be tracked in version control.
+
+### Testing
+
+Before running tests, make sure the generated code and mocks are up to date:
+```sh
+make sqlc
+make proto
+make mock # depends on sqlc, must run after it
+```
+
+Tests are run inside the dev container:
+```sh
+make test
+```
+
+To run integration tests, make sure the third-party services are running (see `make start`):
+```sh
+make test-all
 ```
 
 ## Database
