@@ -21,7 +21,7 @@ func quoteCommand() *cli.Command {
 		Usage: "Start the Quote gRPC service",
 		Flags: []cli.Flag{&flags.PostgresURL, &flags.ListenAddr},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			pool, err := pgxpool.New(ctx, cmd.String("postgres-url"))
+			pool, err := pgxpool.New(ctx, cmd.String(flags.PostgresURL.Name))
 			if err != nil {
 				return err
 			}
@@ -33,7 +33,7 @@ func quoteCommand() *cli.Command {
 				return err
 			}
 
-			lis, err := net.Listen("tcp", cmd.String("listen-addr"))
+			lis, err := net.Listen("tcp", cmd.String(flags.ListenAddr.Name))
 			if err != nil {
 				return err
 			}

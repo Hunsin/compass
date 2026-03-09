@@ -10,8 +10,11 @@ import (
 
 func main() {
 	cmd := &cli.Command{
-		Name:     "compass",
-		Commands: []*cli.Command{quoteCommand()},
+		Name: "compass",
+		Commands: []*cli.Command{
+			quoteCommand(),
+			partitionCommand(),
+		},
 	}
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {

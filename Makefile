@@ -47,7 +47,7 @@ test-all:
 	@$(COMPOSE_RUN) dev go test -tags integration ./...
 
 partition:
-	@cat examples/create_partition.sql | docker exec -i compass-postgres psql
+	@$(COMPOSE_RUN) dev go run ./cmd/compass partition
 
 install: start migrate-up sqlc proto mock partition
 	@$(COMPOSE_RUN) dev go install ./...

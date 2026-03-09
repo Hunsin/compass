@@ -1,0 +1,38 @@
+# Normalize line endings to LF in the repository
+* text=auto eol=lf
+
+# Go source files - always LF
+*.go text eol=lf
+
+# Shell scripts - always LF
+*.sh text eol=lf
+
+# SQL files - always LF
+*.sql text eol=lf
+
+# Makefile - always LF (required for tab indentation to work correctly)
+Makefile text eol=lf
+
+# Markdown - always LF
+*.md text eol=lf
+
+# YAML/TOML/JSON - always LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+
+# Protobuf - always LF
+*.proto text eol=lf
+
+# Binary files - no line ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
