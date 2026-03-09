@@ -8,7 +8,7 @@ COMPOSE_RUN = docker compose run --rm --remove-orphans
 start:
 	@docker compose up --wait -d
 
-stop: stop-quote
+stop: stop-quote stop-postgres
 	@docker compose down --remove-orphans
 
 clean: stop-quote
@@ -56,4 +56,7 @@ start-quote:
 	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --listen-addr :50168
 
 stop-quote:
-	-@docker stop compass-quote-service
+	@docker stop compass-quote-service 2>/dev/null || true
+
+stop-postgres:
+	@docker stop compass-postgres 2>/dev/null || true

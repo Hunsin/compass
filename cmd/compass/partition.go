@@ -6,9 +6,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/Hunsin/compass/lib/flags"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/urfave/cli/v3"
+
+	"github.com/Hunsin/compass/lib/flags"
 )
 
 func partitionCommand() *cli.Command {
