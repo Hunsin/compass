@@ -43,6 +43,9 @@ lint:
 test:
 	@$(COMPOSE_RUN) dev go test ./...
 
+test-all:
+	@$(COMPOSE_RUN) dev go test -tags integration ./...
+
 partition:
 	@cat examples/create_partition.sql | docker exec -i compass-postgres psql
 

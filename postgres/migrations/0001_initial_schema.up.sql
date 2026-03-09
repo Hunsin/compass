@@ -27,6 +27,9 @@ CREATE TABLE ohlcv_per_min (
 
 CREATE INDEX idx_ohlcv_per_min_sec_id_ts ON ohlcv_per_min (sec_id, ts);
 
+-- The 30-minute table is designed to be upserted with the latest data from the
+-- per-minute table, so we use ON CONFLICT DO UPDATE to handle both insertions and updates.
+-- The timestamps are always aligned to 30-minute boundaries.
 CREATE TABLE ohlcv_per_30min (
     sec_id    UUID NOT NULL,
     ts   TIMESTAMP NOT NULL,

@@ -29,12 +29,17 @@ INSERT INTO ohlcv_per_min (
 -- name: GetOHLCVsPerMin :many
 SELECT * FROM ohlcv_per_min WHERE sec_id = @sec_id AND ts >= @start AND ts < @before ORDER BY ts;
 
--- name: InsertOHLCVsPer30Min :copyfrom
+-- name: UpsertOHLCVPer30Min :exec
 INSERT INTO ohlcv_per_30min (
     sec_id, ts, open, high, low, close, volume
 ) VALUES (
     @sec_id, @ts, @open, @high, @low, @close, @volume
-);
+) ON CONFLICT (sec_id, ts) DO UPDATE SET
+    open   = CASE WHEN @is_first::boolean THEN EXCLUDED.open ELSE ohlcv_per_30min.open END,
+    high   = GREATEST(ohlcv_per_30min.high, EXCLUDED.high),
+    low    = LEAST(ohlcv_per_30min.low, EXCLUDED.low),
+    close  = CASE WHEN @is_last::boolean THEN EXCLUDED.close ELSE ohlcv_per_30min.close END,
+    volume = ohlcv_per_30min.volume + EXCLUDED.volume;
 
 -- name: GetOHLCVsPer30Min :many
 SELECT * FROM ohlcv_per_30min WHERE sec_id = @sec_id AND ts >= @start AND ts < @before ORDER BY ts;

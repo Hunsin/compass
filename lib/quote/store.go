@@ -6,10 +6,12 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -18,18 +20,25 @@ import (
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
+type DBTX interface {
+	model.DBTX
+	Begin(context.Context) (pgx.Tx, error)
+}
+
 // store is a PostgreSQL-backed implementation of Model.
 type store struct {
+	db      DBTX
 	queries model.Querier
 }
 
 // Connect establishes a DB connection and returns a Model.
-func Connect(db model.DBTX) Model {
-	return &store{queries: model.New(db)}
+func Connect(db DBTX) Model {
+	return &store{db: db, queries: model.New(db)}
 }
 
 func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
-	if err := s.queries.InsertExchange(ctx, ex.GetAbbr(), ex.GetName(), ex.GetTimezone()); err != nil {
+	abbr := strings.ToLower(ex.GetAbbr())
+	if err := s.queries.InsertExchange(ctx, abbr, ex.GetName(), ex.GetTimezone()); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return ErrAlreadyExists
@@ -44,6 +53,7 @@ func (s *store) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	result := make([]*pb.Exchange, len(rows))
 	for i, r := range rows {
 		abbr := r.Abbr
@@ -59,18 +69,19 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 	if err != nil {
 		return err
 	}
-	exchangeSet := make(map[string]bool, len(exchanges))
+	m := make(map[string]bool, len(exchanges))
 	for _, ex := range exchanges {
-		exchangeSet[ex.Abbr] = true
+		m[strings.ToLower(ex.Abbr)] = true
 	}
 
 	params := make([]model.InsertSecuritiesParams, 0, len(securities))
 	for _, sec := range securities {
-		if !exchangeSet[sec.GetExchange()] {
+		abbr := strings.ToLower(sec.GetExchange())
+		if !m[abbr] {
 			return ErrNotFound
 		}
 		params = append(params, model.InsertSecuritiesParams{
-			Exchange: sec.GetExchange(),
+			Exchange: abbr,
 			Symbol:   sec.GetSymbol(),
 			Name:     sec.GetName(),
 		})
@@ -92,6 +103,8 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 }
 
 func (s *store) GetSecurities(ctx context.Context, exchange string) ([]*pb.Security, error) {
+	exchange = strings.ToLower(exchange)
+
 	rows, err := s.queries.GetSecurities(ctx, exchange)
 	if err != nil {
 		return nil, err
@@ -102,6 +115,7 @@ func (s *store) GetSecurities(ctx context.Context, exchange string) ([]*pb.Secur
 		}
 		return nil, nil
 	}
+
 	result := make([]*pb.Security, len(rows))
 	for i, r := range rows {
 		exch := r.Exchange
@@ -113,6 +127,8 @@ func (s *store) GetSecurities(ctx context.Context, exchange string) ([]*pb.Secur
 }
 
 func (s *store) CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error {
+	exchange = strings.ToLower(exchange)
+
 	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
 	if err != nil || len(secs) == 0 {
 		return ErrNotFound
@@ -160,24 +176,80 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 		return err
 	}
 
-	// Aggregate into 30-minute buckets and persist.
-	thirtyMin := aggregateOHLCVs(ohlcvs, func(t time.Time) time.Time {
-		return t.Truncate(30 * time.Minute)
-	})
-	thirtyMinParams := make([]model.InsertOHLCVsPer30MinParams, len(thirtyMin))
-	for i, o := range thirtyMin {
-		thirtyMinParams[i] = model.InsertOHLCVsPer30MinParams{
-			SecID:  secID,
-			Ts:     pgtype.Timestamp{Time: o.GetTs().AsTime(), Valid: true},
-			Open:   floatToNumeric(o.GetOpen()),
-			High:   floatToNumeric(o.GetHigh()),
-			Low:    floatToNumeric(o.GetLow()),
-			Close:  floatToNumeric(o.GetClose()),
-			Volume: int64(o.GetVolume()),
+	// Aggregate into 30-minute buckets and upsert.
+	type bucket30 struct {
+		open   float64
+		high   float64
+		low    float64
+		close  float64
+		volume uint64
+		minTs  time.Time
+		maxTs  time.Time
+	}
+	buckets := make(map[time.Time]*bucket30)
+	var order []time.Time
+	for _, o := range ohlcvs {
+		t := o.GetTs().AsTime().Truncate(time.Minute)
+		k := t.Truncate(30 * time.Minute)
+		if b, ok := buckets[k]; !ok {
+			buckets[k] = &bucket30{
+				open: o.GetOpen(), high: o.GetHigh(),
+				low: o.GetLow(), close: o.GetClose(),
+				volume: o.GetVolume(), minTs: t, maxTs: t,
+			}
+			order = append(order, k)
+		} else {
+			if o.GetHigh() > b.high {
+				b.high = o.GetHigh()
+			}
+			if o.GetLow() < b.low {
+				b.low = o.GetLow()
+			}
+			b.close = o.GetClose()
+			b.volume += o.GetVolume()
+			if t.Before(b.minTs) {
+				b.minTs = t
+			}
+			if t.After(b.maxTs) {
+				b.maxTs = t
+			}
 		}
 	}
-	_, err := s.queries.InsertOHLCVsPer30Min(ctx, thirtyMinParams)
+	params := make([]model.UpsertOHLCVPer30MinParams, 0, len(order))
+	for _, k := range order {
+		b := buckets[k]
+
+		// TODO: currently handle special case at 13:25 for Taiwanese market.
+		// Need to find a more flexible way to determine if the last bucket is partial.
+		isLast := b.maxTs.Equal(k.Add(29*time.Minute)) ||
+			b.maxTs.Hour() == 13 && b.maxTs.Minute() == 25
+
+		params = append(params, model.UpsertOHLCVPer30MinParams{
+			SecID:   secID,
+			Ts:      pgtype.Timestamp{Time: k, Valid: true},
+			Open:    floatToNumeric(b.open),
+			High:    floatToNumeric(b.high),
+			Low:     floatToNumeric(b.low),
+			Close:   floatToNumeric(b.close),
+			Volume:  int64(b.volume),
+			IsFirst: b.minTs.Equal(k),
+			IsLast:  isLast,
+		})
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	tq := model.New(tx)
+	for _, p := range params {
+		if err := tq.UpsertOHLCVPer30Min(ctx, p); err != nil {
 			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
@@ -211,15 +283,35 @@ func (s *store) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, befo
 	for i, r := range rows {
 		result[i] = ohlcvProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume)
 	}
-	if interval == Interval5m {
-		return aggregateOHLCVs(result, func(t time.Time) time.Time {
-			return t.Truncate(5 * time.Minute)
-		}), nil
+
+	if interval == Interval1m {
+		return result, nil
 	}
-	return result, nil
+
+	var d time.Duration
+	switch interval {
+	case Interval5m:
+		d = 5 * time.Minute
+	case Interval30m:
+		d = 30 * time.Minute
+	case Interval1h:
+		d = time.Hour
+	default:
+		return nil, ErrInvalidArgument
+	}
+
+	return aggregateOHLCVs(result, func(t time.Time) time.Time {
+		return t.Truncate(d)
+	}), nil
 }
 
 func (s *store) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, before time.Time, interval int64) ([]*pb.OHLCV, error) {
+	// If from/before is not aligned to 30-minute boundary, we need to aggregate from per-minute data.
+	if from.After(from.Truncate(30*time.Minute)) ||
+		before.After(before.Truncate(30*time.Minute)) {
+		return s.getOHLCVsPerMin(ctx, secID, from, before, interval)
+	}
+
 	rows, err := s.queries.GetOHLCVsPer30Min(ctx, secID,
 		pgtype.Timestamp{Time: from, Valid: true},
 		pgtype.Timestamp{Time: before, Valid: true},
@@ -227,6 +319,7 @@ func (s *store) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, be
 	if err != nil {
 		return nil, err
 	}
+
 	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
 		result[i] = ohlcvProto(r.Ts.Time, r.Open, r.High, r.Low, r.Close, r.Volume)
