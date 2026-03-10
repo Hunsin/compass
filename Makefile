@@ -46,6 +46,9 @@ test:
 test-all:
 	@$(COMPOSE_RUN) dev go test -tags integration ./...
 
+build:
+	@$(COMPOSE_RUN) -e CGO_ENABLED=0 -e GOOS=linux dev go build -o bin/compass ./cmd/compass
+
 partition:
 	@$(COMPOSE_RUN) dev go run ./cmd/compass partition
 

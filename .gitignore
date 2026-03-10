@@ -3,3 +3,4 @@ protocols/gen
 **/*_mocks.go
 .venv
 .vscode/
+bin/
