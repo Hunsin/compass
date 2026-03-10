@@ -41,6 +41,9 @@ jobs:
       - name: Run unit tests via Makefile
         run: make test
 
+      - name: Build binary via Makefile
+        run: make build
+
   build_and_push:
     name: Build & (Optional) Push Image
     # Execute on push to main, or on manual trigger with 'build_image' action
