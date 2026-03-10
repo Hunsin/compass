@@ -56,7 +56,7 @@ start-quote:
 	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --listen-addr :50168
 
 stop-quote:
-	@docker stop compass-quote-service 2>/dev/null || true
+	@docker stop compass-quote-service || true
 
 stop-postgres:
-	@docker stop compass-postgres 2>/dev/null || true
+	@docker stop compass-postgres || true
