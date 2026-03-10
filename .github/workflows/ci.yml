@@ -32,6 +32,12 @@ jobs:
         uses: actions/checkout@v4
 
       # CI machine has docker-compose by default, directly use make test, identical to local behavior
+      - name: Generate codes
+        run: make proto sqlc mock
+
+      - name: Run linter via Makefile
+        run: make lint
+
       - name: Run unit tests via Makefile
         run: make test
 
@@ -44,7 +50,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      # Same build logic as Local
+      - name: Generate codes
+        run: make proto sqlc mock
+
       - name: Build binary via Makefile
         run: make build
 
