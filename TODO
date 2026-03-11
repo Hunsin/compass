@@ -1,4 +1,4 @@
-1. seperate the code of quote service to:
+1. separate the code of quote service to:
     - controller: keep in the original directory
     - model: create Quote model in lib/quote
 2. add test cases for the quote service:
