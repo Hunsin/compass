@@ -37,9 +37,6 @@ jobs:
       - name: Migrate database via Makefile
         run: make migrate-up
 
-      - name: Create partitions via Makefile
-        run: make partition
-
       - name: Run unit tests and integration tests via Makefile
         run: make test-all
 
