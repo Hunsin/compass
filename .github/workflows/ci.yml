@@ -23,7 +23,7 @@ on:
 
 jobs:
   test:
-    name: Run Tests
+    name: Run All Tests
     # Execute on pull request to main, or on manual trigger with 'test' action
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'test')
     runs-on: ubuntu-latest
@@ -38,8 +38,14 @@ jobs:
       - name: Run linter via Makefile
         run: make lint
 
-      - name: Run unit tests via Makefile
-        run: make test
+      - name: Migrate database via Makefile
+        run: make migrate-up
+
+      - name: Create partitions via Makefile
+        run: make partition
+
+      - name: Run unit tests and integration tests via Makefile
+        run: make test-all
 
       - name: Build binary via Makefile
         run: make build
