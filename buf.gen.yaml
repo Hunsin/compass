@@ -1,0 +1,15 @@
+# For details on buf.gen.yaml configuration, visit https://buf.build/docs/configuration/v2/buf-gen-yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.36.11
+    out: .
+    opt:
+      - module=github.com/Hunsin/compass
+  - remote: buf.build/grpc/go:v1.6.1
+    out: .
+    opt:
+      - module=github.com/Hunsin/compass
+  - remote: buf.build/protocolbuffers/python:v33.5
+    out: protocols/gen/python
+  - remote: buf.build/grpc/python:v1.78.1
+    out: protocols/gen/python

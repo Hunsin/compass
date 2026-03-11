@@ -1,0 +1,40 @@
+version: "2"
+servers:
+  - engine: postgresql
+    uri: ${POSTGRES_URL}
+sql:
+  - engine: postgresql
+    queries: postgres/queries/query.sql
+    schema: postgres/migrations
+    gen:
+      go:
+        package: model
+        out: postgres/gen/model
+        sql_package: pgx/v5
+        sql_driver: github.com/jackc/pgx/v5
+        emit_interface: true
+        omit_unused_structs: true
+        overrides: &overrides
+          # Declare overrides with both nullable and non-nullable versions.
+          # See: https://docs.sqlc.dev/en/stable/howto/overrides.html
+          - &override_uuid
+            db_type: uuid
+            nullable: false
+            go_type:
+              import: github.com/google/uuid
+              type: UUID
+          - <<: *override_uuid
+            nullable: true
+          - &override_date
+            db_type: date
+            nullable: false
+            go_type:
+              import: cloud.google.com/go/civil
+              type: Date
+          - <<: *override_date
+            nullable: true
+        query_parameter_limit: 3
+        rename:
+          ohlcv_per_min: OHLCVperMin
+          ohlcv_per_30min: OHLCVper30Min
+          ohlcv_per_day: OHLCVperDay

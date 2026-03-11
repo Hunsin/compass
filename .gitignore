@@ -1,0 +1,4 @@
+postgres/gen
+protocols/gen
+**/*_mocks.go
+.venv

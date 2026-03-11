@@ -1,0 +1,88 @@
+x-tools-shared: &tools-shared
+  volumes:
+    - ${ROOT_DIR:?error}:/compass
+  working_dir: /compass
+  networks:
+    - compass
+  profiles:
+    - tools
+
+services:
+  dev:
+    <<: *tools-shared
+    build:
+      dockerfile: dockerfiles/dev.Dockerfile
+      tags:
+        - compass/dev:${GIT_COMMIT_SHA:?error}
+    image: compass/dev:${GIT_COMMIT_SHA:?error}
+    environment:
+      - ROOT_DIR=${ROOT_DIR:?error}
+    env_file:
+      - .env
+    volumes:
+      - ${ROOT_DIR:?error}:/compass
+      - app:/go/bin
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  migrate:
+    <<: *tools-shared
+    image: migrate/migrate:v4.19.1
+    entrypoint:
+      - migrate
+      - -path=postgres/migrations
+      - -database=${POSTGRES_URL}
+
+  sqlc:
+    <<: *tools-shared
+    image: sqlc/sqlc:1.30.0
+    command: generate
+    env_file:
+      - .env
+
+  buf:
+    <<: *tools-shared
+    image: bufbuild/buf:1.65.0
+    command: generate
+
+  mockery:
+    <<: *tools-shared
+    image: vektra/mockery:v3.7.0
+
+  postgres:
+    image: postgres:18.2-alpine3.23
+    container_name: compass-postgres
+    env_file:
+      - .env
+    healthcheck:
+      test: pg_isready
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - compass
+
+  app:
+    build:
+      dockerfile: dockerfiles/app.Dockerfile
+      tags:
+        - compass/app:${GIT_COMMIT_SHA:?error}
+    image: compass/app:${GIT_COMMIT_SHA:?error}
+    env_file:
+      - .env
+    entrypoint: compass
+    volumes:
+      - app:/usr/local/bin:ro
+    depends_on:
+      - postgres
+    networks:
+      - compass
+    profiles:
+      - app
+
+volumes:
+  app:
+    name: compass-app
+
+networks:
+  compass:
+    name: compass

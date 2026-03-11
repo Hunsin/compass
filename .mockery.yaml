@@ -1,0 +1,26 @@
+all: false
+dir: '{{.InterfaceDir}}'
+filename: '{{.SrcPackageName}}_mocks.go'
+force-file-write: true
+formatter: goimports
+formatter-options:
+  goimports:
+    local-prefix: github.com/Hunsin/compass
+generate: true
+log-level: info
+structname: '{{.Mock}}{{.InterfaceName}}'
+pkgname: '{{.SrcPackageName}}'
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: '{{.Template}}.schema.json'
+packages:
+  github.com/Hunsin/compass/lib/quote:
+    interfaces:
+      Model:
+  github.com/Hunsin/compass/postgres/gen/model:
+    config:
+      include-auto-generated: true
+    interfaces:
+      Querier:
+      
