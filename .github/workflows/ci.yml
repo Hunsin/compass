@@ -1,10 +1,9 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
     inputs:
       action:
@@ -14,17 +13,11 @@ on:
         type: choice
         options:
           - test        # Run make test
-          - build_image # Run make build and build/push image
-      push_to_registry:
-        description: 'Push image to GitHub Registry? (only for build_image action)'
-        required: true
-        type: boolean
-        default: false
 
 jobs:
   test:
     name: Run All Tests
-    # Execute on pull request to main, or on manual trigger with 'test' action
+    # Execute on pull request, or on manual trigger with 'test' action
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'test')
     runs-on: ubuntu-latest
     steps:
@@ -50,47 +43,4 @@ jobs:
       - name: Build binary via Makefile
         run: make build
 
-  build_and_push:
-    name: Build & (Optional) Push Image
-    # Execute on push to main, or on manual trigger with 'build_image' action
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'build_image')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Generate codes
-        run: make proto sqlc mock
 
-      - name: Build binary via Makefile
-        run: make build
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Login to GHCR only on manual trigger with push_to_registry checked
-      - name: Login to GitHub Container Registry
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'build_image' && github.event.inputs.push_to_registry == true
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/compass-app
-          tags: type=sha,format=short
-
-      - name: Build and push Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: dockerfiles/prod.Dockerfile 
-          push: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.push_to_registry == true }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
