@@ -42,6 +42,7 @@ func partitionAction(ctx context.Context, cmd *cli.Command) error {
 	month := int(cmd.Int(flags.PartitionMonth.Name))
 
 	var targets []time.Time
+	// Create partitions for the specified month, or the current and next month if not specified
 	if year != 0 || month != 0 {
 		if year == 0 || month == 0 {
 			return fmt.Errorf("both year and month must be provided together, or neither")
@@ -70,14 +71,20 @@ func partitionAction(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func createPartitions(ctx context.Context, pool *pgxpool.Pool, target time.Time) error {
-	nextMonth := target.AddDate(0, 1, 0)
+const (
+	sqlCreatePartitionMin   = "CREATE TABLE IF NOT EXISTS ohlcv_per_min_%s PARTITION OF ohlcv_per_min FOR VALUES FROM ('%s') TO ('%s');"
+	sqlCreatePartition30Min = "CREATE TABLE IF NOT EXISTS ohlcv_per_30min_%s PARTITION OF ohlcv_per_30min FOR VALUES FROM ('%s') TO ('%s');"
+	sqlCreatePartitionDay   = "CREATE TABLE IF NOT EXISTS ohlcv_per_day_%s PARTITION OF ohlcv_per_day FOR VALUES FROM ('%s') TO ('%s');"
+)
 
-	monthStr := target.Format("2006_01")
-	dateStart := target.Format("2006-01-02 00:00:00")
-	dateEnd := nextMonth.Format("2006-01-02 00:00:00")
-	dateStartDay := target.Format("2006-01-02")
-	dateEndDay := nextMonth.Format("2006-01-02")
+func createPartitions(ctx context.Context, pool *pgxpool.Pool, baseMonth time.Time) error {
+	nextMonth := baseMonth.AddDate(0, 1, 0)
+
+	tableSuffix := baseMonth.Format("2006_01")
+	timeBoundStart := baseMonth.Format("2006-01-02 00:00:00")
+	timeBoundEnd := nextMonth.Format("2006-01-02 00:00:00")
+	dateBoundStart := baseMonth.Format("2006-01-02")
+	dateBoundEnd := nextMonth.Format("2006-01-02")
 
 	queries := []struct {
 		table string
@@ -85,18 +92,15 @@ func createPartitions(ctx context.Context, pool *pgxpool.Pool, target time.Time)
 	}{
 		{
 			"ohlcv_per_min",
-			fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_min_%s PARTITION OF ohlcv_per_min FOR VALUES FROM ('%s') TO ('%s');`,
-				monthStr, dateStart, dateEnd),
+			fmt.Sprintf(sqlCreatePartitionMin, tableSuffix, timeBoundStart, timeBoundEnd),
 		},
 		{
 			"ohlcv_per_30min",
-			fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_30min_%s PARTITION OF ohlcv_per_30min FOR VALUES FROM ('%s') TO ('%s');`,
-				monthStr, dateStart, dateEnd),
+			fmt.Sprintf(sqlCreatePartition30Min, tableSuffix, timeBoundStart, timeBoundEnd),
 		},
 		{
 			"ohlcv_per_day",
-			fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_day_%s PARTITION OF ohlcv_per_day FOR VALUES FROM ('%s') TO ('%s');`,
-				monthStr, dateStartDay, dateEndDay),
+			fmt.Sprintf(sqlCreatePartitionDay, tableSuffix, dateBoundStart, dateBoundEnd),
 		},
 	}
 
@@ -104,11 +108,11 @@ func createPartitions(ctx context.Context, pool *pgxpool.Pool, target time.Time)
 		log.Printf("Executing: %s", item.query)
 
 		execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		_, err := pool.Exec(execCtx, item.query)
-		cancel()
+		defer cancel()
 
+		_, err := pool.Exec(execCtx, item.query)
 		if err != nil {
-			return fmt.Errorf("failed to create partition for table %s (month %s): %w", item.table, monthStr, err)
+			return fmt.Errorf("failed to create partition for table %s (month %s): %w", item.table, tableSuffix, err)
 		}
 	}
 
