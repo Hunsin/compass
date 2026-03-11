@@ -96,10 +96,10 @@ def main():
         )
 
     if not bars:
-        print(f"No {args.interval} data for {EXCHANGE}:{SYMBOL} on {trading_date}")
+        print(f"No {args.interval} data for {EXCHANGE}:{args.symbol} on {trading_date}")
         return
 
-    print(f"{len(bars)} {args.interval} bars for {EXCHANGE}:{SYMBOL} on {trading_date}\n")
+    print(f"{len(bars)} {args.interval} bars for {EXCHANGE}:{args.symbol} on {trading_date}\n")
     print(f"{'Time':<19}  {'Open':>8}  {'High':>8}  {'Low':>8}  {'Close':>8}  {'Volume':>8}")
     print("-" * 71)
     for bar in bars:

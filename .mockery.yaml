@@ -3,6 +3,9 @@ dir: '{{.InterfaceDir}}'
 filename: '{{.SrcPackageName}}_mocks.go'
 force-file-write: true
 formatter: goimports
+formatter-options:
+  goimports:
+    local-prefix: github.com/Hunsin/compass
 generate: true
 log-level: info
 structname: '{{.Mock}}{{.InterfaceName}}'

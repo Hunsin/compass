@@ -28,6 +28,9 @@ func (s *Service) CreateSecurities(stream grpc.ClientStreamingServer[pb.Security
 		}
 		securities = append(securities, sec)
 	}
+	if len(securities) == 0 {
+		return status.Error(codes.InvalidArgument, "at least one security is required")
+	}
 
 	if err := s.model.CreateSecurities(stream.Context(), securities); err != nil {
 		switch {

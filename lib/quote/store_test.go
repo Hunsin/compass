@@ -371,40 +371,46 @@ func TestGetSecurities(t *testing.T) {
 }
 
 func TestCreateOHLCVs(t *testing.T) {
-	ctx := context.Background()
-	const exch, sym = "twse", "2317"
-	secs := []model.Security{{ID: testSecID}}
-	row := ohlcvRow("2026-01-02 00:00:00", 232.0, 233.5, 229.0, 232.0, 58_776_015)
+	const exc, sym = "twse", "2317"
+	var (
+		ctx  = context.Background()
+		syms = []string{sym}
+		secs = []model.Security{{ID: testSecID}}
+		row  = ohlcvRow("2026-01-02 00:00:00", 232.0, 233.5, 229.0, 232.0, 58_776_015)
+	)
 
 	t.Run("security not found", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(nil, nil)
-		if !errors.Is(s.CreateOHLCVs(ctx, exch, sym, Interval1d, []*pb.OHLCV{row}), ErrNotFound) {
+		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(nil, nil)
+		if !errors.Is(s.CreateOHLCVs(ctx, exc, sym, Interval1d, []*pb.OHLCV{row}), ErrNotFound) {
 			t.Error("want ErrNotFound")
 		}
 	})
 
 	t.Run("day interval", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(secs, nil)
+		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
 		q.EXPECT().InsertOHLCVsPerDay(ctx, mock.Anything).Return(int64(1), nil)
-		if err := s.CreateOHLCVs(ctx, exch, sym, Interval1d, []*pb.OHLCV{row}); err != nil {
+		if err := s.CreateOHLCVs(ctx, exc, sym, Interval1d, []*pb.OHLCV{row}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
 }
 
 func TestGetOHLCVs(t *testing.T) {
-	ctx := context.Background()
-	const exch, sym = "twse", "2317"
-	from := timeOf("2026-01-01 00:00:00")
-	before := timeOf("2026-02-01 00:00:00")
-	secs := []model.Security{{ID: testSecID}}
+	const exc, sym = "twse", "2317"
+	var (
+		ctx    = context.Background()
+		syms   = []string{sym}
+		from   = timeOf("2026-01-01 00:00:00")
+		before = timeOf("2026-02-01 00:00:00")
+		secs   = []model.Security{{ID: testSecID}}
+	)
 
 	t.Run("security not found", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(nil, nil)
-		_, err := s.GetOHLCVs(ctx, exch, sym, Interval1d, from, before)
+		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(nil, nil)
+		_, err := s.GetOHLCVs(ctx, exc, sym, Interval1d, from, before)
 		if !errors.Is(err, ErrNotFound) {
 			t.Errorf("got %v, want ErrNotFound", err)
 		}
@@ -412,7 +418,7 @@ func TestGetOHLCVs(t *testing.T) {
 
 	t.Run("day interval returns rows as-is", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(secs, nil)
+		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
 		q.EXPECT().GetOHLCVsPerDay(ctx, testSecID,
 			civil.DateOf(from),
 			civil.DateOf(before),
@@ -426,7 +432,7 @@ func TestGetOHLCVs(t *testing.T) {
 				Volume: 58_776_015,
 			},
 		}, nil)
-		got, err := s.GetOHLCVs(ctx, exch, sym, Interval1d, from, before)
+		got, err := s.GetOHLCVs(ctx, exc, sym, Interval1d, from, before)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -438,7 +444,7 @@ func TestGetOHLCVs(t *testing.T) {
 	t.Run("week interval aggregates daily rows", func(t *testing.T) {
 		s, q := newTestStore(t)
 		// Jan 5 and Jan 6 fall in the same ISO week (starting Jan 5).
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(secs, nil)
+		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
 		q.EXPECT().GetOHLCVsPerDay(ctx, testSecID,
 			civil.DateOf(from),
 			civil.DateOf(before),
@@ -446,7 +452,7 @@ func TestGetOHLCVs(t *testing.T) {
 			{Date: civil.DateOf(timeOf("2026-01-05")), Open: floatToNumeric(234.5), High: floatToNumeric(236.0), Low: floatToNumeric(233.5), Close: floatToNumeric(234.5), Volume: 64_697_110},
 			{Date: civil.DateOf(timeOf("2026-01-06")), Open: floatToNumeric(237.0), High: floatToNumeric(239.0), Low: floatToNumeric(232.5), Close: floatToNumeric(236.0), Volume: 68_919_645},
 		}, nil)
-		got, err := s.GetOHLCVs(ctx, exch, sym, Interval1w, from, before)
+		got, err := s.GetOHLCVs(ctx, exc, sym, Interval1w, from, before)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -463,7 +469,7 @@ func TestGetOHLCVs(t *testing.T) {
 
 	t.Run("minute interval returns rows as-is", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(secs, nil)
+		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
 		q.EXPECT().GetOHLCVsPerMin(ctx, testSecID,
 			pgtype.Timestamp{Time: from, Valid: true},
 			pgtype.Timestamp{Time: before, Valid: true},
@@ -477,7 +483,7 @@ func TestGetOHLCVs(t *testing.T) {
 				Volume: 1_000_000,
 			},
 		}, nil)
-		got, err := s.GetOHLCVs(ctx, exch, sym, Interval1m, from, before)
+		got, err := s.GetOHLCVs(ctx, exc, sym, Interval1m, from, before)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -488,7 +494,7 @@ func TestGetOHLCVs(t *testing.T) {
 
 	t.Run("30-minute interval returns rows as-is", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exch, sym).Return(secs, nil)
+		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
 		q.EXPECT().GetOHLCVsPer30Min(ctx, testSecID,
 			pgtype.Timestamp{Time: from, Valid: true},
 			pgtype.Timestamp{Time: before, Valid: true},
@@ -502,7 +508,7 @@ func TestGetOHLCVs(t *testing.T) {
 				Volume: 5_000_000,
 			},
 		}, nil)
-		got, err := s.GetOHLCVs(ctx, exch, sym, Interval30m, from, before)
+		got, err := s.GetOHLCVs(ctx, exc, sym, Interval30m, from, before)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
