@@ -15,7 +15,7 @@ import (
 func partitionCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "partition",
-		Usage: "Create partitions for OHLCV tables",
+		Usage: "Create partitions for OHLCV tables (default: creates partitions for current and next month)",
 		Flags: []cli.Flag{
 			&flags.PostgresURL,
 			&flags.PartitionYear,
