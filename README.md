@@ -57,6 +57,7 @@ make test-all # All tests including integration tests
 │   ├── gen/             # Generated Go and Python code from Protobuf definitions
 │   └── quote/           # Protobuf definitions for the quote service
 └── services/            # gRPC service controllers
+
 ```
 
 **Note:** Do not commit generated code. The outputs of `make sqlc`, `make mock`, and `make proto` are regenerated as needed and should not be tracked in version control.

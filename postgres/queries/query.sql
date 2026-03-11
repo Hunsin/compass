@@ -17,7 +17,7 @@ INSERT INTO securities (exchange, symbol, name) VALUES (@exchange, @symbol, @nam
 SELECT * FROM securities WHERE exchange = @exchange;
 
 -- name: GetSecuritiesBySymbols :many
-SELECT * FROM securities WHERE exchange = @exchange AND symbol IN (@symbols);
+SELECT * FROM securities WHERE exchange = @exchange AND symbol = ANY(@symbols::text[]);
 
 -- name: InsertOHLCVsPerMin :copyfrom
 INSERT INTO ohlcv_per_min (

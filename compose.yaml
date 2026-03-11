@@ -46,7 +46,7 @@ services:
 
   mockery:
     <<: *tools-shared
-    image: vektra/mockery:v3.6.4
+    image: vektra/mockery:v3.7.0
 
   postgres:
     image: postgres:18.2-alpine3.23

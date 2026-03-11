@@ -82,7 +82,7 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 		}
 		params = append(params, model.InsertSecuritiesParams{
 			Exchange: abbr,
-			Symbol:   sec.GetSymbol(),
+			Symbol:   strings.ToUpper(sec.GetSymbol()),
 			Name:     sec.GetName(),
 		})
 	}
@@ -128,17 +128,25 @@ func (s *store) GetSecurities(ctx context.Context, exchange string) ([]*pb.Secur
 
 func (s *store) CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error {
 	exchange = strings.ToLower(exchange)
+	symbol = strings.ToUpper(symbol)
 
-	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
-	if err != nil || len(secs) == 0 {
+	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
+	if err != nil {
+		return err
+	}
+	if len(secs) == 0 {
 		return ErrNotFound
 	}
 	secID := secs[0].ID
 
-	if interval == Interval1d {
+	switch interval {
+	case Interval1d:
 		return s.createOHLCVsPerDay(ctx, secID, ohlcvs)
+	case Interval1m:
+		return s.createOHLCVsPerMin(ctx, secID, ohlcvs)
+	default:
+		return ErrInvalidArgument
 	}
-	return s.createOHLCVsPerMin(ctx, secID, ohlcvs)
 }
 
 func (s *store) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
@@ -205,13 +213,14 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 			if o.GetLow() < b.low {
 				b.low = o.GetLow()
 			}
-			b.close = o.GetClose()
 			b.volume += o.GetVolume()
 			if t.Before(b.minTs) {
 				b.minTs = t
+				b.open = o.GetOpen()
 			}
 			if t.After(b.maxTs) {
 				b.maxTs = t
+				b.close = o.GetClose()
 			}
 		}
 	}
@@ -253,8 +262,13 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 }
 
 func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
-	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, symbol)
-	if err != nil || len(secs) == 0 {
+	exchange = strings.ToLower(exchange)
+	symbol = strings.ToUpper(symbol)
+	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
+	if err != nil {
+		return nil, err
+	}
+	if len(secs) == 0 {
 		return nil, ErrNotFound
 	}
 	secID := secs[0].ID
