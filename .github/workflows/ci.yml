@@ -31,6 +31,9 @@ jobs:
       - name: Run linter via Makefile
         run: make lint
 
+      - name: Start services via Makefile
+        run: make start
+
       - name: Migrate database via Makefile
         run: make migrate-up
 
@@ -42,5 +45,3 @@ jobs:
 
       - name: Build binary via Makefile
         run: make build
-
-
