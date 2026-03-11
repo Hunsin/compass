@@ -42,7 +42,16 @@ func partitionAction(ctx context.Context, cmd *cli.Command) error {
 	month := int(cmd.Int(flags.PartitionMonth.Name))
 
 	var targets []time.Time
-	if year != 0 && month != 0 {
+	if year != 0 || month != 0 {
+		if year == 0 || month == 0 {
+			return fmt.Errorf("both year and month must be provided together, or neither")
+		}
+		if month < 1 || month > 12 {
+			return fmt.Errorf("invalid month %d: must be between 1 and 12", month)
+		}
+		if year < 1911 || year > 2100 {
+			return fmt.Errorf("invalid year %d: must be between 1911 and 2100", year)
+		}
 		targets = append(targets, time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC))
 	} else {
 		now := time.Now().UTC()
@@ -70,16 +79,36 @@ func createPartitions(ctx context.Context, pool *pgxpool.Pool, target time.Time)
 	dateStartDay := target.Format("2006-01-02")
 	dateEndDay := nextMonth.Format("2006-01-02")
 
-	queries := []string{
-		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_min_%s PARTITION OF ohlcv_per_min FOR VALUES FROM ('%s') TO ('%s');`, monthStr, dateStart, dateEnd),
-		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_30min_%s PARTITION OF ohlcv_per_30min FOR VALUES FROM ('%s') TO ('%s');`, monthStr, dateStart, dateEnd),
-		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_day_%s PARTITION OF ohlcv_per_day FOR VALUES FROM ('%s') TO ('%s');`, monthStr, dateStartDay, dateEndDay),
+	queries := []struct {
+		table string
+		query string
+	}{
+		{
+			"ohlcv_per_min",
+			fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_min_%s PARTITION OF ohlcv_per_min FOR VALUES FROM ('%s') TO ('%s');`,
+				monthStr, dateStart, dateEnd),
+		},
+		{
+			"ohlcv_per_30min",
+			fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_30min_%s PARTITION OF ohlcv_per_30min FOR VALUES FROM ('%s') TO ('%s');`,
+				monthStr, dateStart, dateEnd),
+		},
+		{
+			"ohlcv_per_day",
+			fmt.Sprintf(`CREATE TABLE IF NOT EXISTS ohlcv_per_day_%s PARTITION OF ohlcv_per_day FOR VALUES FROM ('%s') TO ('%s');`,
+				monthStr, dateStartDay, dateEndDay),
+		},
 	}
 
-	for _, query := range queries {
-		log.Printf("Executing: %s", query)
-		if _, err := pool.Exec(ctx, query); err != nil {
-			return err
+	for _, item := range queries {
+		log.Printf("Executing: %s", item.query)
+
+		execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		_, err := pool.Exec(execCtx, item.query)
+		cancel()
+
+		if err != nil {
+			return fmt.Errorf("failed to create partition for table %s (month %s): %w", item.table, monthStr, err)
 		}
 	}
 
