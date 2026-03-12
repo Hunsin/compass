@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -28,6 +29,19 @@ func connectPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+func connectRedis(t *testing.T) *redis.Client {
+	t.Helper()
+	url := os.Getenv("REDIS_URL")
+	if url == "" {
+		t.Skip("REDIS_URL not set")
+	}
+	opts, err := redis.ParseURL(url)
+	require.NoError(t, err)
+	rdb := redis.NewClient(opts)
+	t.Cleanup(func() { rdb.Close() })
+	return rdb
+}
+
 func assertBucket(t *testing.T, want, got *pb.OHLCV) {
 	t.Helper()
 	require.Equal(t, want.GetTs().AsTime(), got.GetTs().AsTime(), "ts")
@@ -42,8 +56,9 @@ func sp(s string) *string { return &s }
 
 func TestCreateOHLCVsPerMin(t *testing.T) {
 	pool := connectPool(t)
+	rdb := connectRedis(t)
 	ctx := context.Background()
-	mdl := Connect(pool)
+	mdl := Connect(pool, rdb)
 
 	const exch, sym = "twse", "2454"
 

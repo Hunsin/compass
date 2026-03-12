@@ -3,6 +3,7 @@ package quote
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Hunsin/compass/postgres/gen/model"
@@ -29,11 +31,42 @@ type DBTX interface {
 type store struct {
 	db      DBTX
 	queries model.Querier
+	redis   *redis.Client
 }
 
 // Connect establishes a DB connection and returns a Model.
-func Connect(db DBTX) Model {
-	return &store{db: db, queries: model.New(db)}
+func Connect(db DBTX, rdb *redis.Client) Model {
+	return &store{db: db, queries: model.New(db), redis: rdb}
+}
+
+// securityID looks up the security ID for the given exchange and symbol.
+// It checks Redis first; on a cache miss it queries the database and caches the result.
+func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.UUID, error) {
+	key := fmt.Sprintf("security.id:%s:%s", exchange, symbol)
+
+	if s.redis != nil {
+		val, err := s.redis.Get(ctx, key).Result()
+		if err == nil {
+			return uuid.Parse(val)
+		}
+		if !errors.Is(err, redis.Nil) {
+			return uuid.UUID{}, err
+		}
+	}
+
+	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if len(secs) == 0 {
+		return uuid.UUID{}, ErrNotFound
+	}
+
+	secID := secs[0].ID
+	if s.redis != nil {
+		s.redis.Set(ctx, key, secID.String(), 0)
+	}
+	return secID, nil
 }
 
 func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
@@ -130,14 +163,10 @@ func (s *store) CreateOHLCVs(ctx context.Context, exchange, symbol string, inter
 	exchange = strings.ToLower(exchange)
 	symbol = strings.ToUpper(symbol)
 
-	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
+	secID, err := s.securityID(ctx, exchange, symbol)
 	if err != nil {
 		return err
 	}
-	if len(secs) == 0 {
-		return ErrNotFound
-	}
-	secID := secs[0].ID
 
 	switch interval {
 	case Interval1d:
@@ -264,14 +293,11 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
 	exchange = strings.ToLower(exchange)
 	symbol = strings.ToUpper(symbol)
-	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
+
+	secID, err := s.securityID(ctx, exchange, symbol)
 	if err != nil {
 		return nil, err
 	}
-	if len(secs) == 0 {
-		return nil, ErrNotFound
-	}
-	secID := secs[0].ID
 
 	switch interval {
 	case Interval1m, Interval5m:

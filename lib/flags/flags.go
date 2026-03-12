@@ -8,6 +8,11 @@ var (
 		Sources: cli.EnvVars("POSTGRES_URL"),
 	}
 
+	RedisURL = cli.StringFlag{
+		Name:    "redis-url",
+		Sources: cli.EnvVars("REDIS_URL"),
+	}
+
 	ListenAddr = cli.StringFlag{
 		Name:    "listen-addr",
 		Sources: cli.EnvVars("LISTEN_ADDR"),
