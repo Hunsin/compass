@@ -3,11 +3,11 @@ name: CD Pipeline
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       push_to_registry:
-        description: 'Push image to GitHub Registry?'
+        description: "Push image to GitHub Registry?"
         required: true
         type: boolean
         default: false
@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Generate codes
         run: make proto sqlc mock
 
@@ -50,7 +50,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: dockerfiles/prod.Dockerfile 
+          file: dockerfiles/prod.Dockerfile
           push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.push_to_registry == true) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

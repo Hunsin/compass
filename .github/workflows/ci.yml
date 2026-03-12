@@ -2,17 +2,17 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Select the action to perform'
+        description: "Select the action to perform"
         required: true
-        default: 'test'
+        default: "test"
         type: choice
         options:
-          - test        # Run make test
+          - test # Run make test
 
 jobs:
   test:
