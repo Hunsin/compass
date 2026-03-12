@@ -3,16 +3,19 @@ package main
 import (
 	"context"
 	"net"
+	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 
 	"github.com/Hunsin/compass/lib/flags"
+	"github.com/Hunsin/compass/lib/middleware"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 	quoteSvc "github.com/Hunsin/compass/services/quote"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func quoteCommand() *cli.Command {
@@ -21,6 +24,8 @@ func quoteCommand() *cli.Command {
 		Usage: "Start the Quote gRPC service",
 		Flags: []cli.Flag{&flags.PostgresURL, &flags.ListenAddr},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
+			log := zerolog.New(os.Stdout).With().Timestamp().Logger()
+
 			pool, err := pgxpool.New(ctx, cmd.String("postgres-url"))
 			if err != nil {
 				return err
@@ -38,10 +43,14 @@ func quoteCommand() *cli.Command {
 				return err
 			}
 
-			srv := grpc.NewServer()
+			srv := grpc.NewServer(
+				grpc.ChainUnaryInterceptor(middleware.UnaryInterceptor(&log)),
+				grpc.ChainStreamInterceptor(middleware.StreamInterceptor(&log)),
+			)
 			model := quoteLib.Connect(pool)
-			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
+			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model, log))
 
+			log.Info().Str("addr", lis.Addr().String()).Msg("starting quote service")
 			return srv.Serve(lis)
 		},
 	}

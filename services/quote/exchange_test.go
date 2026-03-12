@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -112,7 +113,7 @@ func TestCreateExchange(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
+			svc := New(m, zerolog.Nop())
 			_, err := svc.CreateExchange(context.Background(), tc.req)
 			assertCode(t, err, tc.wantCode)
 		})
@@ -123,7 +124,7 @@ func TestGetExchanges_Success(t *testing.T) {
 	abbr, name, tz := "twse", "TWSE", "Asia/Taipei"
 	m := quoteLib.NewMockModel(t)
 	m.On("GetExchanges", mock.Anything).Return([]*pb.Exchange{{Abbr: &abbr, Name: &name, Timezone: &tz}}, nil)
-	svc := New(m)
+	svc := New(m, zerolog.Nop())
 	stream := &mockExchangeStream{ctx: context.Background()}
 
 	if err := svc.GetExchanges(&emptypb.Empty{}, stream); err != nil {
@@ -140,7 +141,7 @@ func TestGetExchanges_Success(t *testing.T) {
 func TestGetExchanges_Error(t *testing.T) {
 	m := quoteLib.NewMockModel(t)
 	m.On("GetExchanges", mock.Anything).Return(nil, errors.New("db down"))
-	svc := New(m)
+	svc := New(m, zerolog.Nop())
 	stream := &mockExchangeStream{ctx: context.Background()}
 	assertCode(t, svc.GetExchanges(&emptypb.Empty{}, stream), codes.Internal)
 }

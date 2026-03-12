@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -120,7 +121,7 @@ func TestCreateSecurities(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
+			svc := New(m, zerolog.Nop())
 			stream := &mockSecurityRecvStream{messages: tc.messages, ctx: context.Background()}
 			err := svc.CreateSecurities(stream)
 			assertCode(t, err, tc.wantCode)
@@ -189,7 +190,7 @@ func TestGetSecurities(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
+			svc := New(m, zerolog.Nop())
 			stream := &mockSecuritySendStream{ctx: context.Background()}
 			err := svc.GetSecurities(tc.req, stream)
 			assertCode(t, err, tc.wantCode)
