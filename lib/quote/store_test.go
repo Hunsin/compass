@@ -26,7 +26,7 @@ var testSecID = uuid.New()
 func newTestStore(t *testing.T) (Model, *model.MockQuerier) {
 	t.Helper()
 	q := model.NewMockQuerier(t)
-	return &store{queries: q}, q
+	return &store{queries: q, cache: newCache(nil)}, q
 }
 
 // timeOf parse the timestamp in either "2006-01-02 15:04:05" or "2006-01-02" format.

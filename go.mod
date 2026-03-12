@@ -5,6 +5,7 @@ go 1.25.7
 require (
 	cloud.google.com/go v0.123.0
 	github.com/google/uuid v1.6.0
+	github.com/hashicorp/golang-lru/v2 v2.0.8-0.20260224032529-5015efc0ee40
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/stretchr/testify v1.11.1

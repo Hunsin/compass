@@ -32,13 +32,13 @@ type DBTX interface {
 type store struct {
 	db      DBTX
 	queries model.Querier
-	redis   *redis.Client
+	cache   Cache
 	sg      singleflight.Group
 }
 
 // Connect establishes a DB connection and returns a Model. The Redis client is optional.
 func Connect(db DBTX, rdb *redis.Client) Model {
-	return &store{db: db, queries: model.New(db), redis: rdb}
+	return &store{db: db, queries: model.New(db), cache: newCache(rdb)}
 }
 
 func keyOfSecurityID(exchange, symbol string) string {
@@ -50,14 +50,12 @@ func keyOfSecurityID(exchange, symbol string) string {
 func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.UUID, error) {
 	key := keyOfSecurityID(exchange, symbol)
 
-	if s.redis != nil {
-		val, err := s.redis.Get(ctx, key).Result()
-		if err == nil {
-			return uuid.Parse(val)
-		}
-		if !errors.Is(err, redis.Nil) {
-			return uuid.UUID{}, err
-		}
+	val, err := s.cache.Get(ctx, key)
+	if err == nil {
+		return uuid.Parse(val)
+	}
+	if !errors.Is(err, redis.Nil) {
+		return uuid.UUID{}, err
 	}
 
 	v, err, _ := s.sg.Do(key, func() (any, error) {
@@ -71,9 +69,7 @@ func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.U
 	}
 
 	secID := v.(model.Security).ID
-	if s.redis != nil {
-		s.redis.Set(ctx, key, secID.String(), 0)
-	}
+	s.cache.Set(ctx, key, secID.String())
 	return secID, nil
 }
 
