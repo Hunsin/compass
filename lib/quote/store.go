@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Hunsin/compass/postgres/gen/model"
@@ -32,17 +33,22 @@ type store struct {
 	db      DBTX
 	queries model.Querier
 	redis   *redis.Client
+	sg      singleflight.Group
 }
 
-// Connect establishes a DB connection and returns a Model.
+// Connect establishes a DB connection and returns a Model. The Redis client is optional.
 func Connect(db DBTX, rdb *redis.Client) Model {
 	return &store{db: db, queries: model.New(db), redis: rdb}
+}
+
+func keyOfSecurityID(exchange, symbol string) string {
+	return fmt.Sprintf("security.id:%s:%s", exchange, symbol)
 }
 
 // securityID looks up the security ID for the given exchange and symbol.
 // It checks Redis first; on a cache miss it queries the database and caches the result.
 func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.UUID, error) {
-	key := fmt.Sprintf("security.id:%s:%s", exchange, symbol)
+	key := keyOfSecurityID(exchange, symbol)
 
 	if s.redis != nil {
 		val, err := s.redis.Get(ctx, key).Result()
@@ -54,15 +60,17 @@ func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.U
 		}
 	}
 
-	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
+	v, err, _ := s.sg.Do(key, func() (any, error) {
+		return s.queries.GetSecurity(ctx, exchange, symbol)
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.UUID{}, ErrNotFound
+	}
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	if len(secs) == 0 {
-		return uuid.UUID{}, ErrNotFound
-	}
 
-	secID := secs[0].ID
+	secID := v.(model.Security).ID
 	if s.redis != nil {
 		s.redis.Set(ctx, key, secID.String(), 0)
 	}

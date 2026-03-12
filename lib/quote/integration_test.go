@@ -55,23 +55,25 @@ func assertBucket(t *testing.T, want, got *pb.OHLCV) {
 func sp(s string) *string { return &s }
 
 func TestCreateOHLCVsPerMin(t *testing.T) {
-	pool := connectPool(t)
-	rdb := connectRedis(t)
-	ctx := context.Background()
-	mdl := Connect(pool, rdb)
-
-	const exch, sym = "twse", "2454"
+	const exc, sym = "intg", "2454"
+	var (
+		pool = connectPool(t)
+		rdb  = connectRedis(t)
+		ctx  = context.Background()
+		mdl  = Connect(pool, rdb)
+	)
 
 	// Ensure clean state before and after.
-	pool.Exec(ctx, "DELETE FROM exchanges WHERE abbr = $1", exch)
-	t.Cleanup(func() { pool.Exec(ctx, "DELETE FROM exchanges WHERE abbr = $1", exch) })
+	pool.Exec(ctx, "DELETE FROM exchanges WHERE abbr = $1", exc)
+	t.Cleanup(func() { pool.Exec(ctx, "DELETE FROM exchanges WHERE abbr = $1", exc) })
 
 	require.NoError(t, mdl.CreateExchange(ctx, &pb.Exchange{
-		Abbr: sp(exch), Name: sp("Integration Test"), Timezone: sp("UTC"),
+		Abbr: sp(exc), Name: sp("Integration Test"), Timezone: sp("UTC"),
 	}))
 	require.NoError(t, mdl.CreateSecurities(ctx, []*pb.Security{
-		{Exchange: sp(exch), Symbol: sp(sym), Name: sp("Mediatek")},
+		{Exchange: sp(exc), Symbol: sp(sym), Name: sp("Mediatek")},
 	}))
+	t.Cleanup(func() { rdb.Del(ctx, keyOfSecurityID(exc, sym)) })
 
 	data, err := testdata.Mediatek()
 	require.NoError(t, err)
@@ -93,11 +95,11 @@ func TestCreateOHLCVsPerMin(t *testing.T) {
 	before := timeOf("2026-02-27")
 
 	// Step 1: insert 09:15–13:20.
-	require.NoError(t, mdl.CreateOHLCVs(ctx, exch, sym, Interval1m, firstBatch))
+	require.NoError(t, mdl.CreateOHLCVs(ctx, exc, sym, Interval1m, firstBatch))
 
 	// Step 2: first row = aggregated 09:15–09:29 (partial 09:00 bucket),
 	//          last row = aggregated 13:00–13:20 (partial 13:00 bucket).
-	rows, err := mdl.GetOHLCVs(ctx, exch, sym, Interval30m, from, before)
+	rows, err := mdl.GetOHLCVs(ctx, exc, sym, Interval30m, from, before)
 	require.NoError(t, err)
 	require.NotEmpty(t, rows)
 
@@ -111,11 +113,11 @@ func TestCreateOHLCVsPerMin(t *testing.T) {
 	assertBucket(t, partial[len(partial)-1], rows[len(rows)-1])
 
 	// Step 3: insert the rest (09:00–09:14 and 13:21–13:25).
-	require.NoError(t, mdl.CreateOHLCVs(ctx, exch, sym, Interval1m, rest))
+	require.NoError(t, mdl.CreateOHLCVs(ctx, exc, sym, Interval1m, rest))
 
 	// Step 4: all rows in ohlcv_per_30min must match the full 30-minute
 	//         aggregation of the entire dataset.
-	all, err := mdl.GetOHLCVs(ctx, exch, sym, Interval30m, from, before)
+	all, err := mdl.GetOHLCVs(ctx, exc, sym, Interval30m, from, before)
 	require.NoError(t, err)
 
 	expected := aggregateOHLCVs(data, func(t time.Time) time.Time {
