@@ -2,7 +2,6 @@ package quote
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -36,10 +35,7 @@ func (s *Service) CreateOHLCVs(ctx context.Context, req *pb.CreateOHLCVsRequest)
 	}
 
 	if err := s.model.CreateOHLCVs(ctx, req.GetExchange(), req.GetSymbol(), intervalSecs, req.Ohlcv); err != nil {
-		if errors.Is(err, quoteLib.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "security not found")
-		}
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, s.fromError(err)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -68,10 +64,7 @@ func (s *Service) GetOHLCVs(req *pb.GetOHLCVsRequest, stream grpc.ServerStreamin
 
 	ohlcvs, err := s.model.GetOHLCVs(stream.Context(), req.GetExchange(), req.GetSymbol(), intervalSecs, fromTime, beforeTime)
 	if err != nil {
-		if errors.Is(err, quoteLib.ErrNotFound) {
-			return status.Error(codes.NotFound, "security not found")
-		}
-		return status.Error(codes.Internal, err.Error())
+		return s.fromError(err)
 	}
 
 	for _, o := range ohlcvs {

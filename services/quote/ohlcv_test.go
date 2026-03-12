@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -85,7 +86,7 @@ func TestCreateOHLCVs(t *testing.T) {
 			req:  &pb.CreateOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("9999"), Interval: dur(60), Ohlcv: []*pb.OHLCV{validOHLCV}},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().CreateOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(quoteLib.ErrNotFound)
+					Return(oops.NotFound("security not found"))
 			},
 			wantCode: codes.NotFound,
 		},
@@ -184,7 +185,7 @@ func TestGetOHLCVs(t *testing.T) {
 			req:  &pb.GetOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("9999"), Interval: dur(60), From: from, Before: before},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().GetOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(nil, quoteLib.ErrNotFound)
+					Return(nil, oops.NotFound("security not found"))
 			},
 			wantCode: codes.NotFound,
 		},

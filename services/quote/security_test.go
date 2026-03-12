@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -84,7 +85,7 @@ func TestCreateSecurities(t *testing.T) {
 			name:     "exchange not found",
 			messages: []*pb.Security{validSec},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(quoteLib.ErrNotFound)
+				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(oops.NotFound("exchange not found"))
 			},
 			wantCode: codes.NotFound,
 		},
@@ -92,7 +93,7 @@ func TestCreateSecurities(t *testing.T) {
 			name:     "already exists",
 			messages: []*pb.Security{validSec},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(quoteLib.ErrAlreadyExists)
+				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(oops.AlreadyExists("security already exists"))
 			},
 			wantCode: codes.AlreadyExists,
 		},
@@ -151,7 +152,7 @@ func TestGetSecurities(t *testing.T) {
 			name: "exchange not found",
 			req:  &pb.Exchange{Abbr: strPtr("twse")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, quoteLib.ErrNotFound)
+				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, oops.NotFound("exchange not found"))
 			},
 			wantCode: codes.NotFound,
 		},

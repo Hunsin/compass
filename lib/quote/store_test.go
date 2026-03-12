@@ -12,8 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	"github.com/Hunsin/compass/lib/quote/testdata"
 	"github.com/Hunsin/compass/postgres/gen/model"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
@@ -246,8 +248,8 @@ func TestCreateExchange(t *testing.T) {
 	t.Run("already exists", func(t *testing.T) {
 		s, q := newTestStore(t)
 		q.EXPECT().InsertExchange(ctx, abbr, name, tz).Return(&pgconn.PgError{Code: "23505"})
-		if !errors.Is(s.CreateExchange(ctx, ex), ErrAlreadyExists) {
-			t.Error("want ErrAlreadyExists")
+		if !oops.Is(s.CreateExchange(ctx, ex), codes.AlreadyExists) {
+			t.Error("want AlreadyExists")
 		}
 	})
 
@@ -290,21 +292,21 @@ func TestGetExchanges(t *testing.T) {
 
 func TestCreateSecurities(t *testing.T) {
 	ctx := context.Background()
-	exch, sym, secName := "twse", "2317", "Hon Hai"
-	sec := &pb.Security{Exchange: &exch, Symbol: &sym, Name: &secName}
-	params := []model.InsertSecuritiesParams{{Exchange: exch, Symbol: sym, Name: secName}}
+	exc, sym, secName := "twse", "2317", "Hon Hai"
+	sec := &pb.Security{Exchange: &exc, Symbol: &sym, Name: &secName}
+	params := []model.InsertSecuritiesParams{{Exchange: exc, Symbol: sym, Name: secName}}
 
 	t.Run("exchange not found", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetExchanges(ctx).Return([]model.Exchange{}, nil)
-		if !errors.Is(s.CreateSecurities(ctx, []*pb.Security{sec}), ErrNotFound) {
-			t.Error("want ErrNotFound")
+		q.EXPECT().GetExchanges(ctx).Return([]model.Exchange{{Abbr: "nyse"}}, nil)
+		if !oops.Is(s.CreateSecurities(ctx, []*pb.Security{sec}), codes.NotFound) {
+			t.Error("want NotFound")
 		}
 	})
 
 	t.Run("success", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetExchanges(ctx).Return([]model.Exchange{{Abbr: exch}}, nil)
+		q.EXPECT().GetExchanges(ctx).Return([]model.Exchange{{Abbr: exc}}, nil)
 		q.EXPECT().InsertSecurities(ctx, params).Return(int64(1), nil)
 		if err := s.CreateSecurities(ctx, []*pb.Security{sec}); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -313,19 +315,10 @@ func TestCreateSecurities(t *testing.T) {
 
 	t.Run("already exists", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetExchanges(ctx).Return([]model.Exchange{{Abbr: exch}}, nil)
+		q.EXPECT().GetExchanges(ctx).Return([]model.Exchange{{Abbr: exc}}, nil)
 		q.EXPECT().InsertSecurities(ctx, mock.Anything).Return(int64(0), &pgconn.PgError{Code: "23505"})
-		if !errors.Is(s.CreateSecurities(ctx, []*pb.Security{sec}), ErrAlreadyExists) {
-			t.Error("want ErrAlreadyExists")
-		}
-	})
-
-	t.Run("foreign key violation", func(t *testing.T) {
-		s, q := newTestStore(t)
-		q.EXPECT().GetExchanges(ctx).Return([]model.Exchange{{Abbr: exch}}, nil)
-		q.EXPECT().InsertSecurities(ctx, mock.Anything).Return(int64(0), &pgconn.PgError{Code: "23503"})
-		if !errors.Is(s.CreateSecurities(ctx, []*pb.Security{sec}), ErrNotFound) {
-			t.Error("want ErrNotFound")
+		if !oops.Is(s.CreateSecurities(ctx, []*pb.Security{sec}), codes.AlreadyExists) {
+			t.Error("want AlreadyExists")
 		}
 	})
 }
@@ -364,8 +357,8 @@ func TestGetSecurities(t *testing.T) {
 		q.EXPECT().GetSecurities(ctx, exch).Return([]model.Security{}, nil)
 		q.EXPECT().GetExchange(ctx, exch).Return(model.Exchange{}, errors.New("no rows"))
 		_, err := s.GetSecurities(ctx, exch)
-		if !errors.Is(err, ErrNotFound) {
-			t.Error("want ErrNotFound")
+		if !oops.Is(err, codes.NotFound) {
+			t.Error("want NotFound")
 		}
 	})
 }
@@ -382,8 +375,8 @@ func TestCreateOHLCVs(t *testing.T) {
 	t.Run("security not found", func(t *testing.T) {
 		s, q := newTestStore(t)
 		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(nil, nil)
-		if !errors.Is(s.CreateOHLCVs(ctx, exc, sym, Interval1d, []*pb.OHLCV{row}), ErrNotFound) {
-			t.Error("want ErrNotFound")
+		if !oops.Is(s.CreateOHLCVs(ctx, exc, sym, Interval1d, []*pb.OHLCV{row}), codes.NotFound) {
+			t.Error("want NotFound")
 		}
 	})
 
@@ -411,8 +404,8 @@ func TestGetOHLCVs(t *testing.T) {
 		s, q := newTestStore(t)
 		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(nil, nil)
 		_, err := s.GetOHLCVs(ctx, exc, sym, Interval1d, from, before)
-		if !errors.Is(err, ErrNotFound) {
-			t.Errorf("got %v, want ErrNotFound", err)
+		if !oops.Is(err, codes.NotFound) {
+			t.Errorf("got %v, want NotFound", err)
 		}
 	})
 

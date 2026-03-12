@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -85,7 +86,7 @@ func TestCreateExchange(t *testing.T) {
 			name: "already exists",
 			req:  &pb.Exchange{Abbr: strPtr("twse"), Name: strPtr("TWSE"), Timezone: strPtr("Asia/Taipei")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(quoteLib.ErrAlreadyExists)
+				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(oops.AlreadyExists("exchange already exists"))
 			},
 			wantCode: codes.AlreadyExists,
 		},

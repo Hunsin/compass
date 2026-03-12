@@ -2,7 +2,6 @@ package quote
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
@@ -26,10 +24,7 @@ func (s *Service) CreateExchange(ctx context.Context, ex *pb.Exchange) (*emptypb
 	abbr := strings.ToLower(ex.GetAbbr())
 	normalized := &pb.Exchange{Abbr: &abbr, Name: ex.Name, Timezone: ex.Timezone}
 	if err := s.model.CreateExchange(ctx, normalized); err != nil {
-		if errors.Is(err, quoteLib.ErrAlreadyExists) {
-			return nil, status.Error(codes.AlreadyExists, "exchange already exists")
-		}
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, s.fromError(err)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -37,7 +32,7 @@ func (s *Service) CreateExchange(ctx context.Context, ex *pb.Exchange) (*emptypb
 func (s *Service) GetExchanges(_ *emptypb.Empty, stream grpc.ServerStreamingServer[pb.Exchange]) error {
 	exchanges, err := s.model.GetExchanges(stream.Context())
 	if err != nil {
-		return status.Error(codes.Internal, err.Error())
+		return s.fromError(err)
 	}
 	for _, ex := range exchanges {
 		if err := stream.Send(ex); err != nil {

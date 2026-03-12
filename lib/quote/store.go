@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	"github.com/Hunsin/compass/postgres/gen/model"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -41,9 +42,9 @@ func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
 	if err := s.queries.InsertExchange(ctx, abbr, ex.GetName(), ex.GetTimezone()); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return ErrAlreadyExists
+			return oops.AlreadyExists("exchange %s already exists", abbr)
 		}
-		return err
+		return oops.Internal(err)
 	}
 	return nil
 }
@@ -51,7 +52,7 @@ func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
 func (s *store) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
 	rows, err := s.queries.GetExchanges(ctx)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 
 	result := make([]*pb.Exchange, len(rows))
@@ -67,7 +68,7 @@ func (s *store) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
 func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security) error {
 	exchanges, err := s.queries.GetExchanges(ctx)
 	if err != nil {
-		return err
+		return oops.Internal(err)
 	}
 	m := make(map[string]bool, len(exchanges))
 	for _, ex := range exchanges {
@@ -78,7 +79,7 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 	for _, sec := range securities {
 		abbr := strings.ToLower(sec.GetExchange())
 		if !m[abbr] {
-			return ErrNotFound
+			return oops.NotFound("exchange %s not found", abbr)
 		}
 		params = append(params, model.InsertSecuritiesParams{
 			Exchange: abbr,
@@ -89,15 +90,10 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 
 	if _, err := s.queries.InsertSecurities(ctx, params); err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			switch pgErr.Code {
-			case "23505":
-				return ErrAlreadyExists
-			case "23503":
-				return ErrNotFound
-			}
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return oops.AlreadyExists("one or more securities already exist")
 		}
-		return err
+		return oops.Internal(err)
 	}
 	return nil
 }
@@ -107,11 +103,11 @@ func (s *store) GetSecurities(ctx context.Context, exchange string) ([]*pb.Secur
 
 	rows, err := s.queries.GetSecurities(ctx, exchange)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 	if len(rows) == 0 {
 		if _, err := s.queries.GetExchange(ctx, exchange); err != nil {
-			return nil, ErrNotFound
+			return nil, oops.NotFound("exchange %s not found", exchange)
 		}
 		return nil, nil
 	}
@@ -132,10 +128,10 @@ func (s *store) CreateOHLCVs(ctx context.Context, exchange, symbol string, inter
 
 	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
 	if err != nil {
-		return err
+		return oops.Internal(err)
 	}
 	if len(secs) == 0 {
-		return ErrNotFound
+		return oops.NotFound("security %s not found", symbol)
 	}
 	secID := secs[0].ID
 
@@ -145,7 +141,7 @@ func (s *store) CreateOHLCVs(ctx context.Context, exchange, symbol string, inter
 	case Interval1m:
 		return s.createOHLCVsPerMin(ctx, secID, ohlcvs)
 	default:
-		return ErrInvalidArgument
+		return oops.InvalidArgument("unsupported interval: %s", time.Duration(interval)*time.Second)
 	}
 }
 
@@ -162,8 +158,10 @@ func (s *store) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs 
 			Volume: int64(o.GetVolume()),
 		}
 	}
-	_, err := s.queries.InsertOHLCVsPerDay(ctx, params)
-	return err
+	if _, err := s.queries.InsertOHLCVsPerDay(ctx, params); err != nil {
+		return oops.Internal(err)
+	}
+	return nil
 }
 
 func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
@@ -181,7 +179,7 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 		}
 	}
 	if _, err := s.queries.InsertOHLCVsPerMin(ctx, minParams); err != nil {
-		return err
+		return oops.Internal(err)
 	}
 
 	// Aggregate into 30-minute buckets and upsert.
@@ -248,28 +246,32 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return err
+		return oops.Internal(err)
 	}
 	defer tx.Rollback(ctx)
 
 	tq := model.New(tx)
 	for _, p := range params {
 		if err := tq.UpsertOHLCVPer30Min(ctx, p); err != nil {
-			return err
+			return oops.Internal(err)
 		}
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return oops.Internal(err)
+	}
+	return nil
 }
 
 func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
 	exchange = strings.ToLower(exchange)
 	symbol = strings.ToUpper(symbol)
+
 	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, []string{symbol})
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 	if len(secs) == 0 {
-		return nil, ErrNotFound
+		return nil, oops.NotFound("security %s not found", symbol)
 	}
 	secID := secs[0].ID
 
@@ -281,7 +283,7 @@ func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval
 	case Interval1d, Interval1w, Interval1M:
 		return s.getOHLCVsPerDay(ctx, secID, from, before, interval)
 	default:
-		return nil, ErrInvalidArgument
+		return nil, oops.InvalidArgument("unsupported interval: %s", time.Duration(interval)*time.Second)
 	}
 }
 
@@ -291,7 +293,7 @@ func (s *store) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, befo
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
@@ -311,7 +313,7 @@ func (s *store) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, befo
 	case Interval1h:
 		d = time.Hour
 	default:
-		return nil, ErrInvalidArgument
+		return nil, oops.InvalidArgument("unsupported interval: %s", time.Duration(interval)*time.Second)
 	}
 
 	return aggregateOHLCVs(result, func(t time.Time) time.Time {
@@ -331,7 +333,7 @@ func (s *store) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, be
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 
 	result := make([]*pb.OHLCV, len(rows))
@@ -352,7 +354,7 @@ func (s *store) getOHLCVsPerDay(ctx context.Context, secID uuid.UUID, from, befo
 		civil.DateOf(before),
 	)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
