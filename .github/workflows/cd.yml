@@ -16,6 +16,9 @@ jobs:
   build_and_push:
     name: Build & Push Image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
