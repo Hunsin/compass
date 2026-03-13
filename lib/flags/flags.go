@@ -29,4 +29,9 @@ var (
 		Name:  "month",
 		Usage: "Month to create partition for (1-12)",
 	}
+
+	PartitionTable = cli.StringFlag{
+		Name:  "table",
+		Usage: "Specific table to create partition for (e.g. ohlcv_per_min, ohlcv_per_30min, ohlcv_per_day)",
+	}
 )
