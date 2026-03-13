@@ -31,16 +31,19 @@ func TestMain(m *testing.M) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: connect pool: %v\n", err)
+		pool.Close()
 		os.Exit(1)
 	}
-	defer pool.Close()
 
 	if err := testhelper.CreateDefaultPartitions(ctx, pool); err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: create default partitions: %v\n", err)
+		pool.Close()
 		os.Exit(1)
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+	pool.Close()
+	os.Exit(code)
 }
 
 func connectPool(t *testing.T) *pgxpool.Pool {

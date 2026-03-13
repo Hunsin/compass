@@ -23,7 +23,7 @@ var defaultPartitionStmts = []string{
 func CreateDefaultPartitions(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, stmt := range defaultPartitionStmts {
 		if _, err := pool.Exec(ctx, stmt); err != nil {
-			return fmt.Errorf("testhelper: create default partition: %w", err)
+			return fmt.Errorf("testhelper: create default partition with statement %q: %w", stmt, err)
 		}
 	}
 	return nil
