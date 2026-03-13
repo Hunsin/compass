@@ -23,7 +23,7 @@ func quoteCommand() *cli.Command {
 		Flags: []cli.Flag{&flags.PostgresURL, &flags.RedisURL, &flags.ListenAddr},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 
-			// initalize Postgres and Redis clients
+			// initialize Postgres and Redis clients
 			pool, err := pgxpool.New(ctx, cmd.String(flags.PostgresURL.Name))
 			if err != nil {
 				return err
@@ -38,14 +38,19 @@ func quoteCommand() *cli.Command {
 			defer rdb.Close()
 
 			// check connections
-			childCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			defer cancel()
-			if err := pool.Ping(childCtx); err != nil {
-				return err
+			{
+				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				if err := pool.Ping(pingCtx); err != nil {
+					return err
+				}
 			}
-			_, err = rdb.Ping(childCtx).Result()
-			if err != nil {
-				return err
+			{
+				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				if _, err := rdb.Ping(pingCtx).Result(); err != nil {
+					return err
+				}
 			}
 
 			lis, err := net.Listen("tcp", cmd.String(flags.ListenAddr.Name))
