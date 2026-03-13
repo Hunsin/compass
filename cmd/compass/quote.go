@@ -23,29 +23,31 @@ func quoteCommand() *cli.Command {
 		Flags: []cli.Flag{&flags.PostgresURL, &flags.RedisURL, &flags.ListenAddr},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 
-			// initialize Postgres and Redis clients
+			// initialize the Postgres client
 			pool, err := pgxpool.New(ctx, cmd.String(flags.PostgresURL.Name))
 			if err != nil {
 				return err
 			}
 			defer pool.Close()
 
-			rdbOpts, err := redis.ParseURL(cmd.String(flags.RedisURL.Name))
-			if err != nil {
+			// check connection
+			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			if err := pool.Ping(pingCtx); err != nil {
 				return err
 			}
-			rdb := redis.NewClient(rdbOpts)
-			defer rdb.Close()
 
-			// check connections
-			{
-				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				defer cancel()
-				if err := pool.Ping(pingCtx); err != nil {
+			// Redis is optional; create connection if the flag is provided
+			var rdb *redis.Client
+			if u := cmd.String(flags.RedisURL.Name); u != "" {
+				opts, err := redis.ParseURL(u)
+				if err != nil {
 					return err
 				}
-			}
-			{
+
+				rdb = redis.NewClient(opts)
+				defer rdb.Close()
+
 				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
 				if _, err := rdb.Ping(pingCtx).Result(); err != nil {

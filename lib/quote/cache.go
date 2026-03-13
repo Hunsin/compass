@@ -2,10 +2,14 @@ package quote
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/redis/go-redis/v9"
 )
+
+var ErrCacheMiss = errors.New("cache miss")
 
 // Cache defines the interface for caching security ID lookups.
 type Cache interface {
@@ -17,15 +21,15 @@ type lruCache struct {
 	lc *lru.Cache[string, string]
 }
 
-func (c *lruCache) Get(ctx context.Context, key string) (string, error) {
+func (c *lruCache) Get(_ context.Context, key string) (string, error) {
 	val, ok := c.lc.Get(key)
 	if !ok {
-		return "", redis.Nil
+		return "", ErrCacheMiss
 	}
 	return val, nil
 }
 
-func (c *lruCache) Set(ctx context.Context, key string, value string) error {
+func (c *lruCache) Set(_ context.Context, key string, value string) error {
 	c.lc.Add(key, value)
 	return nil
 }
@@ -35,11 +39,15 @@ type redisCache struct {
 }
 
 func (c *redisCache) Get(ctx context.Context, key string) (string, error) {
-	return c.rdb.Get(ctx, key).Result()
+	s, err := c.rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		err = ErrCacheMiss
+	}
+	return s, err
 }
 
 func (c *redisCache) Set(ctx context.Context, key string, value string) error {
-	return c.rdb.Set(ctx, key, value, 0).Err()
+	return c.rdb.Set(ctx, key, value, 48*time.Hour).Err()
 }
 
 // newCache creates a Redis-backed cache. If rdb is nil, it creates an in-memory

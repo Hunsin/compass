@@ -54,7 +54,7 @@ func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.U
 	if err == nil {
 		return uuid.Parse(val)
 	}
-	if !errors.Is(err, redis.Nil) {
+	if !errors.Is(err, ErrCacheMiss) {
 		return uuid.UUID{}, err
 	}
 
@@ -69,8 +69,8 @@ func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.U
 	}
 
 	secID := v.(model.Security).ID
-	s.cache.Set(ctx, key, secID.String())
-	return secID, nil
+	err = s.cache.Set(ctx, key, secID.String())
+	return secID, err
 }
 
 func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
