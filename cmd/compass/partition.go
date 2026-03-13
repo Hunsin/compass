@@ -15,7 +15,7 @@ import (
 func partitionCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "partition",
-		Usage: "Create partitions for OHLCV tables (default: creates partitions for current and next month)",
+		Usage: "Create partitions for OHLCV tables (min/30min per month, day per year)",
 		Flags: []cli.Flag{
 			&flags.PostgresURL,
 			&flags.PartitionYear,
@@ -80,11 +80,17 @@ const (
 func createPartitions(ctx context.Context, pool *pgxpool.Pool, baseMonth time.Time) error {
 	nextMonth := baseMonth.AddDate(0, 1, 0)
 
-	tableSuffix := baseMonth.Format("2006_01")
+	// For monthly partitions (used by ohlcv_per_min and ohlcv_per_30min)
+	monthSuffix := baseMonth.Format("2006_01")
 	timeBoundStart := baseMonth.Format("2006-01-02 00:00:00")
 	timeBoundEnd := nextMonth.Format("2006-01-02 00:00:00")
-	dateBoundStart := baseMonth.Format("2006-01-02")
-	dateBoundEnd := nextMonth.Format("2006-01-02")
+
+	// For yearly partitions (used by ohlcv_per_day)
+	baseYear := time.Date(baseMonth.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+	nextYear := baseYear.AddDate(1, 0, 0)
+	yearSuffix := baseYear.Format("2006")
+	dateBoundStart := baseYear.Format("2006-01-02")
+	dateBoundEnd := nextYear.Format("2006-01-02")
 
 	queries := []struct {
 		table string
@@ -92,15 +98,15 @@ func createPartitions(ctx context.Context, pool *pgxpool.Pool, baseMonth time.Ti
 	}{
 		{
 			"ohlcv_per_min",
-			fmt.Sprintf(sqlCreatePartitionMin, tableSuffix, timeBoundStart, timeBoundEnd),
+			fmt.Sprintf(sqlCreatePartitionMin, monthSuffix, timeBoundStart, timeBoundEnd),
 		},
 		{
 			"ohlcv_per_30min",
-			fmt.Sprintf(sqlCreatePartition30Min, tableSuffix, timeBoundStart, timeBoundEnd),
+			fmt.Sprintf(sqlCreatePartition30Min, monthSuffix, timeBoundStart, timeBoundEnd),
 		},
 		{
 			"ohlcv_per_day",
-			fmt.Sprintf(sqlCreatePartitionDay, tableSuffix, dateBoundStart, dateBoundEnd),
+			fmt.Sprintf(sqlCreatePartitionDay, yearSuffix, dateBoundStart, dateBoundEnd),
 		},
 	}
 
@@ -112,7 +118,7 @@ func createPartitions(ctx context.Context, pool *pgxpool.Pool, baseMonth time.Ti
 
 		_, err := pool.Exec(execCtx, item.query)
 		if err != nil {
-			return fmt.Errorf("failed to create partition for table %s (month %s): %w", item.table, tableSuffix, err)
+			return fmt.Errorf("failed to create partition for table %s (base month %s): %w", item.table, monthSuffix, err)
 		}
 	}
 
