@@ -44,7 +44,7 @@ make test-all # All tests including integration tests
 
 ### Project Structure
 
-```
+```text
 .
 ├── cmd/                 # Application entry point
 ├── dockerfiles/         # Docker images
@@ -57,6 +57,7 @@ make test-all # All tests including integration tests
 │   ├── gen/             # Generated Go and Python code from Protobuf definitions
 │   └── quote/           # Protobuf definitions for the quote service
 └── services/            # gRPC service controllers
+
 ```
 
 **Note:** Do not commit generated code. The outputs of `make sqlc`, `make mock`, and `make proto` are regenerated as needed and should not be tracked in version control.
@@ -64,6 +65,7 @@ make test-all # All tests including integration tests
 ### Testing
 
 Before running tests, make sure the generated code and mocks are up to date:
+
 ```sh
 make sqlc
 make proto
@@ -71,11 +73,13 @@ make mock # depends on sqlc, must run after it
 ```
 
 Tests are run inside the dev container:
+
 ```sh
 make test
 ```
 
 To run integration tests, make sure the third-party services are running (see `make start`):
+
 ```sh
 make test-all
 ```

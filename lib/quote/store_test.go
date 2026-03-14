@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	mock "github.com/stretchr/testify/mock"
@@ -27,7 +28,7 @@ var testSecID = uuid.New()
 func newTestStore(t *testing.T) (Model, *model.MockQuerier) {
 	t.Helper()
 	q := model.NewMockQuerier(t)
-	return &store{queries: q}, q
+	return &store{queries: q, cache: newCache(nil)}, q
 }
 
 // timeOf parse the timestamp in either "2006-01-02 15:04:05" or "2006-01-02" format.
@@ -366,15 +367,14 @@ func TestGetSecurities(t *testing.T) {
 func TestCreateOHLCVs(t *testing.T) {
 	const exc, sym = "twse", "2317"
 	var (
-		ctx  = context.Background()
-		syms = []string{sym}
-		secs = []model.Security{{ID: testSecID}}
-		row  = ohlcvRow("2026-01-02 00:00:00", 232.0, 233.5, 229.0, 232.0, 58_776_015)
+		ctx = context.Background()
+		sec = model.Security{ID: testSecID}
+		row = ohlcvRow("2026-01-02 00:00:00", 232.0, 233.5, 229.0, 232.0, 58_776_015)
 	)
 
 	t.Run("security not found", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(nil, nil)
+		q.EXPECT().GetSecurity(ctx, exc, sym).Return(model.Security{}, pgx.ErrNoRows)
 		if !oops.Is(s.CreateOHLCVs(ctx, exc, sym, Interval1d, []*pb.OHLCV{row}), codes.NotFound) {
 			t.Error("want NotFound")
 		}
@@ -382,7 +382,7 @@ func TestCreateOHLCVs(t *testing.T) {
 
 	t.Run("day interval", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
+		q.EXPECT().GetSecurity(ctx, exc, sym).Return(sec, nil)
 		q.EXPECT().InsertOHLCVsPerDay(ctx, mock.Anything).Return(int64(1), nil)
 		if err := s.CreateOHLCVs(ctx, exc, sym, Interval1d, []*pb.OHLCV{row}); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -394,15 +394,14 @@ func TestGetOHLCVs(t *testing.T) {
 	const exc, sym = "twse", "2317"
 	var (
 		ctx    = context.Background()
-		syms   = []string{sym}
 		from   = timeOf("2026-01-01 00:00:00")
 		before = timeOf("2026-02-01 00:00:00")
-		secs   = []model.Security{{ID: testSecID}}
+		sec    = model.Security{ID: testSecID}
 	)
 
 	t.Run("security not found", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(nil, nil)
+		q.EXPECT().GetSecurity(ctx, exc, sym).Return(model.Security{}, pgx.ErrNoRows)
 		_, err := s.GetOHLCVs(ctx, exc, sym, Interval1d, from, before)
 		if !oops.Is(err, codes.NotFound) {
 			t.Errorf("got %v, want NotFound", err)
@@ -411,7 +410,7 @@ func TestGetOHLCVs(t *testing.T) {
 
 	t.Run("day interval returns rows as-is", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
+		q.EXPECT().GetSecurity(ctx, exc, sym).Return(sec, nil)
 		q.EXPECT().GetOHLCVsPerDay(ctx, testSecID,
 			civil.DateOf(from),
 			civil.DateOf(before),
@@ -437,7 +436,7 @@ func TestGetOHLCVs(t *testing.T) {
 	t.Run("week interval aggregates daily rows", func(t *testing.T) {
 		s, q := newTestStore(t)
 		// Jan 5 and Jan 6 fall in the same ISO week (starting Jan 5).
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
+		q.EXPECT().GetSecurity(ctx, exc, sym).Return(sec, nil)
 		q.EXPECT().GetOHLCVsPerDay(ctx, testSecID,
 			civil.DateOf(from),
 			civil.DateOf(before),
@@ -462,7 +461,7 @@ func TestGetOHLCVs(t *testing.T) {
 
 	t.Run("minute interval returns rows as-is", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
+		q.EXPECT().GetSecurity(ctx, exc, sym).Return(sec, nil)
 		q.EXPECT().GetOHLCVsPerMin(ctx, testSecID,
 			pgtype.Timestamp{Time: from, Valid: true},
 			pgtype.Timestamp{Time: before, Valid: true},
@@ -487,7 +486,7 @@ func TestGetOHLCVs(t *testing.T) {
 
 	t.Run("30-minute interval returns rows as-is", func(t *testing.T) {
 		s, q := newTestStore(t)
-		q.EXPECT().GetSecuritiesBySymbols(ctx, exc, syms).Return(secs, nil)
+		q.EXPECT().GetSecurity(ctx, exc, sym).Return(sec, nil)
 		q.EXPECT().GetOHLCVsPer30Min(ctx, testSecID,
 			pgtype.Timestamp{Time: from, Valid: true},
 			pgtype.Timestamp{Time: before, Valid: true},
