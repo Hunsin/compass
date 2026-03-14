@@ -134,10 +134,12 @@ func TestCreateOHLCVsPerMin(t *testing.T) {
 // reports the estimated table size. Run with -v to see the output.
 func TestOHLCVPerMinSizeEstimation(t *testing.T) {
 	t.Skip("manual run only")
-
-	pool := connectPool(t)
-	ctx := context.Background()
-	mdl := Connect(pool)
+	var (
+		pool = connectPool(t)
+		ctx  = context.Background()
+		rdb  = connectRedis(t)
+		mdl  = Connect(pool, rdb)
+	)
 
 	const (
 		exch    = "twse_size_test"
