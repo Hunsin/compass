@@ -61,6 +61,17 @@ services:
     networks:
       - compass
 
+  redis:
+    image: redis:8.6.1-alpine3.23
+    container_name: compass-redis
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - compass
+
   app:
     build:
       dockerfile: dockerfiles/app.Dockerfile

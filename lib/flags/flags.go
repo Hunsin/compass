@@ -8,10 +8,12 @@ var (
 		Name:    "postgres-url",
 		Sources: cli.EnvVars("POSTGRES_URL"),
 	}
-)
 
-// Quote flags
-var (
+	RedisURL = cli.StringFlag{
+		Name:    "redis-url",
+		Sources: cli.EnvVars("REDIS_URL"),
+	}
+
 	ListenAddr = cli.StringFlag{
 		Name:    "listen-addr",
 		Sources: cli.EnvVars("LISTEN_ADDR"),
