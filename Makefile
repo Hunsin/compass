@@ -43,16 +43,16 @@ lint:
 test:
 	@$(COMPOSE_RUN) dev go test ./...
 
-test-all:
+test-all: partition-default
 	@$(COMPOSE_RUN) dev go test -tags integration ./...
 
 build:
-	@$(COMPOSE_RUN) -e CGO_ENABLED=0 -e GOOS=linux dev go build -o bin/compass ./cmd/compass
+	@$(COMPOSE_RUN) -e CGO_ENABLED=0 dev go build -o bin/compass ./cmd/compass
 
-partition:
-	@$(COMPOSE_RUN) dev go run ./cmd/compass partition
+partition-default:
+	@bash scripts/setup_partitions.sh
 
-install: start migrate-up sqlc proto mock partition
+install: start migrate-up sqlc proto mock
 	@$(COMPOSE_RUN) dev go install ./...
 
 start-quote:

@@ -14,37 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/Hunsin/compass/lib/quote/testdata"
-	"github.com/Hunsin/compass/postgres/testhelper"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
-
-// TestMain runs once before all tests in this package. It creates DEFAULT
-// partitions so that inserts don't fail before range partitions are created.
-func TestMain(m *testing.M) {
-	url := os.Getenv("POSTGRES_URL")
-	if url == "" {
-		// No DB configured; individual tests will skip themselves via connectPool.
-		os.Exit(m.Run())
-	}
-
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "TestMain: connect pool: %v\n", err)
-		pool.Close()
-		os.Exit(1)
-	}
-
-	if err := testhelper.CreateDefaultPartitions(ctx, pool); err != nil {
-		fmt.Fprintf(os.Stderr, "TestMain: create default partitions: %v\n", err)
-		pool.Close()
-		os.Exit(1)
-	}
-
-	code := m.Run()
-	pool.Close()
-	os.Exit(code)
-}
 
 func connectPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
