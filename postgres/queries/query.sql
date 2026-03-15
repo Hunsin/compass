@@ -13,6 +13,9 @@ INSERT INTO securities (exchange, symbol, name) VALUES (@exchange, @symbol, @nam
 -- name: InsertSecurity :one
 INSERT INTO securities (exchange, symbol, name) VALUES (@exchange, @symbol, @name) RETURNING id;
 
+-- name: GetSecurity :one
+SELECT * FROM securities WHERE exchange = @exchange AND symbol = @symbol;
+
 -- name: GetSecurities :many
 SELECT * FROM securities WHERE exchange = @exchange;
 
