@@ -136,8 +136,9 @@ func TestOHLCVPerMinSizeEstimation(t *testing.T) {
 	t.Skip("manual run only")
 
 	pool := connectPool(t)
+	rdb := connectRedis(t)
 	ctx := context.Background()
-	mdl := Connect(pool)
+	mdl := Connect(pool, rdb)
 
 	const (
 		exch    = "twse_size_test"

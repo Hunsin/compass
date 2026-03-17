@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"math/big"
 	"strconv"
@@ -283,7 +284,12 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		err := tx.Rollback(ctx)
+		if err != nil {
+			log.Println("testhelper: rollback transaction: ", err) // TODO: print more info with logger
+		}
+	}()
 
 	tq := model.New(tx)
 	for _, p := range params {

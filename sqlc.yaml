@@ -14,7 +14,7 @@ sql:
         sql_driver: github.com/jackc/pgx/v5
         emit_interface: true
         omit_unused_structs: true
-        overrides: &overrides
+        overrides:
           # Declare overrides with both nullable and non-nullable versions.
           # See: https://docs.sqlc.dev/en/stable/howto/overrides.html
           - &override_uuid
