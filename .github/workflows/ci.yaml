@@ -1,0 +1,42 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Select the action to perform"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test # Run make test
+
+jobs:
+  test:
+    name: Run All Tests
+    # Execute on pull request, or on manual trigger with 'test' action
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'test')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # CI machine has docker-compose by default, directly use make test, identical to local behavior
+      - name: Generate codes
+        run: make proto sqlc mock
+
+      - name: Run linter via Makefile
+        run: make lint
+
+      - name: Start services via Makefile
+        run: make start
+
+      - name: Migrate database via Makefile
+        run: make migrate-up
+
+      - name: Run unit tests and integration tests via Makefile
+        run: make test-all
+
+      - name: Build binary via Makefile
+        run: make build

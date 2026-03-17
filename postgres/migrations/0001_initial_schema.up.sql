@@ -25,7 +25,6 @@ CREATE TABLE ohlcv_per_min (
     FOREIGN KEY (sec_id) REFERENCES securities(id) ON DELETE CASCADE
 ) PARTITION BY RANGE (ts);
 
-CREATE TABLE ohlcv_per_min_default PARTITION OF ohlcv_per_min DEFAULT;
 
 CREATE INDEX idx_ohlcv_per_min_sec_id_ts ON ohlcv_per_min (sec_id, ts);
 
@@ -44,7 +43,6 @@ CREATE TABLE ohlcv_per_30min (
     FOREIGN KEY (sec_id) REFERENCES securities(id) ON DELETE CASCADE
 ) PARTITION BY RANGE (ts);
 
-CREATE TABLE ohlcv_per_30min_default PARTITION OF ohlcv_per_30min DEFAULT;
 
 CREATE INDEX idx_ohlcv_per_30min_sec_id_ts ON ohlcv_per_30min (sec_id, ts);
 
@@ -60,6 +58,5 @@ CREATE TABLE ohlcv_per_day (
     FOREIGN KEY (sec_id) REFERENCES securities(id) ON DELETE CASCADE
 ) PARTITION BY RANGE (date);
 
-CREATE TABLE ohlcv_per_day_default PARTITION OF ohlcv_per_day DEFAULT;
 
 CREATE INDEX idx_ohlcv_per_day_sec_id_date ON ohlcv_per_day (sec_id, date);

@@ -7,26 +7,29 @@ linters:
   default: none
   enable:
     # Correctness
-    - errcheck      # unchecked errors
-    - govet         # go vet checks
-    - staticcheck   # comprehensive static analysis (SA, S, ST, QF)
-    - ineffassign   # ineffectual variable assignments
-    - unused        # unused code
-    - nilerr        # returning nil after checking for a non-nil error
-    - exhaustive    # exhaustive switch/map on enum types
+    - errcheck     # unchecked errors
+    - govet        # go vet checks
+    - staticcheck  # comprehensive static analysis (SA, S, ST, QF)
+    - ineffassign  # ineffectual variable assignments
+    - unused       # unused code
+    - nilerr       # returning nil after checking for a non-nil error
+    - exhaustive   # exhaustive switch/map on enum types
 
     # Style / maintainability
-    - revive        # opinionated linting rules (successor to golint)
-    - gocritic      # diagnostic, style, and performance checks
-    - misspell      # typos in comments and strings
+    - revive    # opinionated linting rules (successor to golint)
+    - gocritic  # diagnostic, style, and performance checks
+    - misspell  # typos in comments and strings
 
   exclusions:
     presets:
       - std-error-handling
+    paths:
+      - postgres/gen   # sqlc-generated code
+      - protocols/gen  # buf-generated code
 
   settings:
     exhaustive:
-      default-signifies-exhaustive: true  # a default: case counts as exhaustive
+      default-signifies-exhaustive: true # a default: case counts as exhaustive
 
     revive:
       rules:
@@ -43,13 +46,8 @@ formatters:
   enable:
     - gofmt
     - goimports
-  
+
   settings:
     goimports:
       local-prefixes:
         - github.com/Hunsin/compass
-
-issues:
-  exclude-dirs:
-    - postgres/gen    # sqlc-generated code
-    - protocols/gen   # buf-generated code

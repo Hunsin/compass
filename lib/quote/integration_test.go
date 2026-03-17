@@ -135,8 +135,8 @@ func TestCreateOHLCVsPerMin(t *testing.T) {
 func TestOHLCVPerMinSizeEstimation(t *testing.T) {
 	t.Skip("manual run only")
 	var (
-		pool = connectPool(t)
 		ctx  = context.Background()
+		pool = connectPool(t)
 		rdb  = connectRedis(t)
 		mdl  = Connect(pool, rdb)
 	)

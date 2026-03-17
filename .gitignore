@@ -1,4 +1,5 @@
 # generated codes
+bin
 postgres/gen
 protocols/gen
 **/*_mocks.go
