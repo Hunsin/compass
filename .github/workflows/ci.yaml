@@ -22,21 +22,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Start services
+        run: make start
+
+      - name: Migrate database
+        run: make migrate-up
+
       # CI machine has docker-compose by default, directly use make test, identical to local behavior
       - name: Generate codes
         run: make proto sqlc mock
 
-      - name: Run linter via Makefile
+      - name: Run linter
         run: make lint
 
-      - name: Start services via Makefile
-        run: make start
-
-      - name: Migrate database via Makefile
-        run: make migrate-up
-
-      - name: Run unit tests and integration tests via Makefile
+      - name: Run unit tests and integration tests
         run: make test-all
 
-      - name: Build binary via Makefile
+      - name: Build binary
         run: make build

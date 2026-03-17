@@ -50,10 +50,9 @@ partition:
 	@bash scripts/setup_partitions.sh
 
 build:
-	@$(COMPOSE_RUN) -e CGO_ENABLED=0 dev go build -o bin/compass ./cmd/compass
-
-install: start migrate-up sqlc proto mock
 	@$(COMPOSE_RUN) dev go install ./...
+
+install: start migrate-up sqlc proto mock build
 
 start-quote:
 	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --listen-addr :50168
