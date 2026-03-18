@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/Hunsin/compass/lib/logutil"
 	"github.com/Hunsin/compass/lib/oops"
 	"github.com/Hunsin/compass/postgres/gen/model"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
@@ -283,9 +283,10 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 		return oops.Internal(err)
 	}
 	defer func() {
-		err := tx.Rollback(ctx)
-		if err != nil {
-			log.Println("testhelper: rollback transaction: ", err) // TODO: print more info with logger
+		if err := tx.Rollback(ctx); err != nil {
+			if log, ok := logutil.FromContext(ctx); ok {
+				log.Warn().Err(err).Msg("failed to rollback transaction")
+			}
 		}
 	}()
 

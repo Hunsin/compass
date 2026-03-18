@@ -4,12 +4,13 @@ import (
 	"context"
 	"os"
 
-	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
+
+	"github.com/Hunsin/compass/lib/logutil"
 )
 
 func main() {
-	log := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	log := logutil.DefaultLogger(os.Stderr)
 
 	cmd := &cli.Command{
 		Name: "compass",

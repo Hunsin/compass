@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/Hunsin/compass/lib/logutil"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -34,6 +35,7 @@ func (s *Service) CreateOHLCVs(ctx context.Context, req *pb.CreateOHLCVsRequest)
 		}
 	}
 
+	ctx = logutil.WithLogger(ctx, s.log)
 	if err := s.model.CreateOHLCVs(ctx, req.GetExchange(), req.GetSymbol(), intervalSecs, req.Ohlcv); err != nil {
 		return nil, s.fromError(err)
 	}
