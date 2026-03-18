@@ -43,10 +43,10 @@ lint:
 test:
 	@$(COMPOSE_RUN) dev go test ./...
 
-test-all: partition-default
+test-all: partition
 	@$(COMPOSE_RUN) dev go test -tags integration ./...
 
-partition-default:
+partition:
 	@bash scripts/setup_partitions.sh
 
 build:
