@@ -76,6 +76,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleMe returns the user ID from the JWT token
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
@@ -84,7 +85,11 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	err = json.NewEncoder(w).Encode(map[string]string{
 		"user_id": userID,
 	})
+	if err != nil {
+		log.Printf("Failed to encode user info: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
