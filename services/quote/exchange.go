@@ -24,7 +24,7 @@ func (s *Service) CreateExchange(ctx context.Context, ex *pb.Exchange) (*emptypb
 	abbr := strings.ToLower(ex.GetAbbr())
 	normalized := &pb.Exchange{Abbr: &abbr, Name: ex.Name, Timezone: ex.Timezone}
 	if err := s.model.CreateExchange(ctx, normalized); err != nil {
-		return nil, s.fromError(err)
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -32,7 +32,7 @@ func (s *Service) CreateExchange(ctx context.Context, ex *pb.Exchange) (*emptypb
 func (s *Service) GetExchanges(_ *emptypb.Empty, stream grpc.ServerStreamingServer[pb.Exchange]) error {
 	exchanges, err := s.model.GetExchanges(stream.Context())
 	if err != nil {
-		return s.fromError(err)
+		return err
 	}
 	for _, ex := range exchanges {
 		if err := stream.Send(ex); err != nil {

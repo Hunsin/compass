@@ -31,7 +31,7 @@ func (s *Service) CreateSecurities(stream grpc.ClientStreamingServer[pb.Security
 	}
 
 	if err := s.model.CreateSecurities(stream.Context(), securities); err != nil {
-		return s.fromError(err)
+		return err
 	}
 	return stream.SendAndClose(&emptypb.Empty{})
 }
@@ -44,7 +44,7 @@ func (s *Service) GetSecurities(ex *pb.Exchange, stream grpc.ServerStreamingServ
 
 	secs, err := s.model.GetSecurities(stream.Context(), abbr)
 	if err != nil {
-		return s.fromError(err)
+		return err
 	}
 
 	for _, sec := range secs {

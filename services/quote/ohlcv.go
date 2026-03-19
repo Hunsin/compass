@@ -37,7 +37,7 @@ func (s *Service) CreateOHLCVs(ctx context.Context, req *pb.CreateOHLCVsRequest)
 
 	ctx = logutil.WithLogger(ctx, s.log)
 	if err := s.model.CreateOHLCVs(ctx, req.GetExchange(), req.GetSymbol(), intervalSecs, req.Ohlcv); err != nil {
-		return nil, s.fromError(err)
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -66,7 +66,7 @@ func (s *Service) GetOHLCVs(req *pb.GetOHLCVsRequest, stream grpc.ServerStreamin
 
 	ohlcvs, err := s.model.GetOHLCVs(stream.Context(), req.GetExchange(), req.GetSymbol(), intervalSecs, fromTime, beforeTime)
 	if err != nil {
-		return s.fromError(err)
+		return err
 	}
 
 	for _, o := range ohlcvs {

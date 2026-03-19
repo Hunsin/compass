@@ -96,16 +96,21 @@ func (e *Error) Error() string {
 	return msg
 }
 
-// GRPC returns a gRPC status error.
-// Internal errors are sanitized: the cause is never included in the status message.
-func (e *Error) GRPC() error {
-	return status.Error(e.code, e.clientMsg())
+// GRPCStatus implements the interface needed by the gRPC framework for building
+// response status.
+// Unlike WriteHTTP, the raw cause message is included for Internal errors.
+func (e *Error) GRPCStatus() *status.Status {
+	return status.New(e.code, e.Error())
 }
 
 // WriteHTTP writes the associated HTTP status code and message to w.
-// Internal errors are sanitized.
+// Internal errors are sanitized: the cause is never included in the client message.
 func (e *Error) WriteHTTP(w http.ResponseWriter) {
-	http.Error(w, e.clientMsg(), GRPCToHTTP(e.code))
+	msg := e.msg
+	if e.code == codes.Internal {
+		msg = internalClientMsg
+	}
+	http.Error(w, msg, GRPCToHTTP(e.code))
 }
 
 // Code returns the gRPC code associated with this error.
@@ -117,13 +122,6 @@ func (e *Error) Code() codes.Code {
 func Is(err error, code codes.Code) bool {
 	var e *Error
 	return errors.As(err, &e) && e.code == code
-}
-
-func (e *Error) clientMsg() string {
-	if e.code == codes.Internal {
-		return internalClientMsg
-	}
-	return e.msg
 }
 
 // NotFound creates an Error with a NotFound code.

@@ -95,7 +95,7 @@ func TestCreateOHLCVs(t *testing.T) {
 			req:  &pb.CreateOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("2330"), Interval: dur(60), Ohlcv: []*pb.OHLCV{validOHLCV}},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().CreateOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(errors.New("db down"))
+					Return(oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -194,7 +194,7 @@ func TestGetOHLCVs(t *testing.T) {
 			req:  &pb.GetOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("2330"), Interval: dur(60), From: from, Before: before},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().GetOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(nil, errors.New("db down"))
+					Return(nil, oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},

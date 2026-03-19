@@ -101,7 +101,7 @@ func TestCreateSecurities(t *testing.T) {
 			name:     "internal error",
 			messages: []*pb.Security{validSec},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(errors.New("db down"))
+				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -160,7 +160,7 @@ func TestGetSecurities(t *testing.T) {
 			name: "internal error",
 			req:  &pb.Exchange{Abbr: strPtr("twse")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, errors.New("db down"))
+				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},

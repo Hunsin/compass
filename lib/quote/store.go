@@ -308,7 +308,7 @@ func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval
 
 	secID, err := s.securityID(ctx, exchange, symbol)
 	if err != nil {
-		return nil, oops.Internal(err)
+		return nil, err
 	}
 
 	switch interval {

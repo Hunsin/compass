@@ -94,7 +94,7 @@ func TestCreateExchange(t *testing.T) {
 			name: "internal error",
 			req:  &pb.Exchange{Abbr: strPtr("twse"), Name: strPtr("TWSE"), Timezone: strPtr("Asia/Taipei")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(errors.New("db down"))
+				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -141,7 +141,7 @@ func TestGetExchanges_Success(t *testing.T) {
 
 func TestGetExchanges_Error(t *testing.T) {
 	m := quoteLib.NewMockModel(t)
-	m.On("GetExchanges", mock.Anything).Return(nil, errors.New("db down"))
+	m.On("GetExchanges", mock.Anything).Return(nil, oops.Internal(errors.New("db down")))
 	svc := New(m, zerolog.Nop())
 	stream := &mockExchangeStream{ctx: context.Background()}
 	assertCode(t, svc.GetExchanges(&emptypb.Empty{}, stream), codes.Internal)
