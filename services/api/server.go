@@ -2,8 +2,8 @@ package api
 
 import (
 	"context"
-	"log"
 
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -33,7 +33,7 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 
 	tokenResp, err := s.kcClient.Login(ctx, req.GetUsername(), req.GetPassword())
 	if err != nil {
-		log.Printf("Login failed for user %s: %v", req.GetUsername(), err)
+		zerolog.Ctx(ctx).Error().Err(err).Str("username", req.GetUsername()).Msg("Login failed")
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials or upstream error")
 	}
 

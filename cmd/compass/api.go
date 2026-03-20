@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
 	"net"
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 
@@ -58,10 +58,11 @@ func apiCommand() *cli.Command {
 			if err != nil {
 				return err
 			}
+			log := zerolog.Ctx(ctx)
 			go func() {
-				log.Printf("gRPC server listening on %s", grpcAddr)
+				log.Info().Str("addr", grpcAddr).Msg("gRPC server listening")
 				if err := grpcSrv.Serve(lis); err != nil {
-					log.Fatalf("gRPC server error: %v", err)
+					log.Fatal().Err(err).Msg("gRPC server error")
 				}
 			}()
 
@@ -78,7 +79,7 @@ func apiCommand() *cli.Command {
 			// 6. Start HTTP listener (JSON gateway) with auth middleware
 			// Login endpoint is public; all other routes require a valid JWT.
 			httpAddr := cmd.String(flags.HTTPAddr.Name)
-			log.Printf("HTTP gateway listening on %s", httpAddr)
+			log.Info().Str("addr", httpAddr).Msg("HTTP gateway listening")
 			handler := authMiddlewareWithExclusions(
 				auth.HTTPMiddleware(validator),
 				gwMux,
