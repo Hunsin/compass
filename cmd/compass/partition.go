@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 
 	"github.com/Hunsin/compass/lib/flags"
@@ -111,7 +111,7 @@ func partitionAction(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	log.Println("Partitions created successfully.")
+	zerolog.Ctx(ctx).Info().Msg("Partitions created successfully.")
 	return nil
 }
 
@@ -218,7 +218,8 @@ func createYearPartition(ctx context.Context, pool *pgxpool.Pool, baseYear time.
 }
 
 func execQuery(ctx context.Context, pool *pgxpool.Pool, query, table, period string) error {
-	log.Printf("Executing: %s", query)
+	log := zerolog.Ctx(ctx)
+	log.Info().Msgf("Executing: %s", query)
 
 	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

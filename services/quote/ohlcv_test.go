@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -84,7 +85,7 @@ func TestCreateOHLCVs(t *testing.T) {
 			req:  &pb.CreateOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("9999"), Interval: dur(60), Ohlcv: []*pb.OHLCV{validOHLCV}},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().CreateOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(quoteLib.ErrNotFound)
+					Return(oops.NotFound("security not found"))
 			},
 			wantCode: codes.NotFound,
 		},
@@ -93,7 +94,7 @@ func TestCreateOHLCVs(t *testing.T) {
 			req:  &pb.CreateOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("2330"), Interval: dur(60), Ohlcv: []*pb.OHLCV{validOHLCV}},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().CreateOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(errors.New("db down"))
+					Return(oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -123,8 +124,8 @@ func TestCreateOHLCVs(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
-			_, err := svc.CreateOHLCVs(context.Background(), tc.req)
+
+			_, err := New(m).CreateOHLCVs(context.Background(), tc.req)
 			assertCode(t, err, tc.wantCode)
 		})
 	}
@@ -183,7 +184,7 @@ func TestGetOHLCVs(t *testing.T) {
 			req:  &pb.GetOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("9999"), Interval: dur(60), From: from, Before: before},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().GetOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(nil, quoteLib.ErrNotFound)
+					Return(nil, oops.NotFound("security not found"))
 			},
 			wantCode: codes.NotFound,
 		},
@@ -192,7 +193,7 @@ func TestGetOHLCVs(t *testing.T) {
 			req:  &pb.GetOHLCVsRequest{Exchange: strPtr("twse"), Symbol: strPtr("2330"), Interval: dur(60), From: from, Before: before},
 			stub: func(m *quoteLib.MockModel) {
 				m.EXPECT().GetOHLCVs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(nil, errors.New("db down"))
+					Return(nil, oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -224,9 +225,9 @@ func TestGetOHLCVs(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
+
 			stream := &mockOHLCVStream{ctx: context.Background()}
-			err := svc.GetOHLCVs(tc.req, stream)
+			err := New(m).GetOHLCVs(tc.req, stream)
 			assertCode(t, err, tc.wantCode)
 			if tc.wantCode == codes.OK && len(stream.sent) != tc.wantSent {
 				t.Errorf("sent %d rows, want %d", len(stream.sent), tc.wantSent)

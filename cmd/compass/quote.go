@@ -7,11 +7,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 
 	"github.com/Hunsin/compass/lib/auth"
 	"github.com/Hunsin/compass/lib/flags"
+	"github.com/Hunsin/compass/lib/middleware"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 	quoteSvc "github.com/Hunsin/compass/services/quote"
@@ -77,13 +79,21 @@ func quoteCommand() *cli.Command {
 				return err
 			}
 
+			log := zerolog.Ctx(ctx)
 			srv := grpc.NewServer(
-				grpc.UnaryInterceptor(auth.GRPCUnaryInterceptor(validator)),
-				grpc.StreamInterceptor(auth.GRPCStreamInterceptor(validator)),
+				grpc.ChainUnaryInterceptor(
+					auth.GRPCUnaryInterceptor(validator),
+					middleware.UnaryInterceptor(log),
+				),
+				grpc.ChainStreamInterceptor(
+					auth.GRPCStreamInterceptor(validator),
+					middleware.StreamInterceptor(log),
+				),
 			)
 			model := quoteLib.Connect(pool, rdb)
 			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
 
+			log.Info().Str("addr", lis.Addr().String()).Msg("starting quote service")
 			return srv.Serve(lis)
 		},
 	}

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -83,7 +84,7 @@ func TestCreateSecurities(t *testing.T) {
 			name:     "exchange not found",
 			messages: []*pb.Security{validSec},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(quoteLib.ErrNotFound)
+				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(oops.NotFound("exchange not found"))
 			},
 			wantCode: codes.NotFound,
 		},
@@ -91,7 +92,7 @@ func TestCreateSecurities(t *testing.T) {
 			name:     "already exists",
 			messages: []*pb.Security{validSec},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(quoteLib.ErrAlreadyExists)
+				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(oops.AlreadyExists("security already exists"))
 			},
 			wantCode: codes.AlreadyExists,
 		},
@@ -99,7 +100,7 @@ func TestCreateSecurities(t *testing.T) {
 			name:     "internal error",
 			messages: []*pb.Security{validSec},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(errors.New("db down"))
+				m.EXPECT().CreateSecurities(mock.Anything, mock.Anything).Return(oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -120,9 +121,9 @@ func TestCreateSecurities(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
+
 			stream := &mockSecurityRecvStream{messages: tc.messages, ctx: context.Background()}
-			err := svc.CreateSecurities(stream)
+			err := New(m).CreateSecurities(stream)
 			assertCode(t, err, tc.wantCode)
 			if tc.wantClosed && !stream.closed {
 				t.Error("expected SendAndClose to be called")
@@ -150,7 +151,7 @@ func TestGetSecurities(t *testing.T) {
 			name: "exchange not found",
 			req:  &pb.Exchange{Abbr: strPtr("twse")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, quoteLib.ErrNotFound)
+				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, oops.NotFound("exchange not found"))
 			},
 			wantCode: codes.NotFound,
 		},
@@ -158,7 +159,7 @@ func TestGetSecurities(t *testing.T) {
 			name: "internal error",
 			req:  &pb.Exchange{Abbr: strPtr("twse")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, errors.New("db down"))
+				m.EXPECT().GetSecurities(mock.Anything, mock.Anything).Return(nil, oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -189,9 +190,9 @@ func TestGetSecurities(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
+
 			stream := &mockSecuritySendStream{ctx: context.Background()}
-			err := svc.GetSecurities(tc.req, stream)
+			err := New(m).GetSecurities(tc.req, stream)
 			assertCode(t, err, tc.wantCode)
 			if tc.wantCode == codes.OK && len(stream.sent) != tc.wantSent {
 				t.Errorf("sent %d securities, want %d", len(stream.sent), tc.wantSent)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 	"strconv"
@@ -17,9 +16,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	"github.com/Hunsin/compass/postgres/gen/model"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -56,22 +57,22 @@ func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.U
 		return uuid.Parse(val)
 	}
 	if !errors.Is(err, ErrCacheMiss) {
-		return uuid.UUID{}, err
+		return uuid.UUID{}, oops.Internal(err)
 	}
 
 	v, err, _ := s.sg.Do(key, func() (any, error) {
 		return s.queries.GetSecurity(ctx, exchange, symbol)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.UUID{}, ErrNotFound
+		return uuid.UUID{}, oops.NotFound("security %s not found", symbol)
 	}
 	if err != nil {
-		return uuid.UUID{}, err
+		return uuid.UUID{}, oops.Internal(err)
 	}
 
 	secID := v.(model.Security).ID
 	err = s.cache.Set(ctx, key, secID.String())
-	return secID, err
+	return secID, oops.Internal(err)
 }
 
 func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
@@ -79,9 +80,9 @@ func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
 	if err := s.queries.InsertExchange(ctx, abbr, ex.GetName(), ex.GetTimezone()); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return ErrAlreadyExists
+			return oops.AlreadyExists("exchange %s already exists", abbr)
 		}
-		return err
+		return oops.Internal(err)
 	}
 	return nil
 }
@@ -89,7 +90,7 @@ func (s *store) CreateExchange(ctx context.Context, ex *pb.Exchange) error {
 func (s *store) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
 	rows, err := s.queries.GetExchanges(ctx)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 
 	result := make([]*pb.Exchange, len(rows))
@@ -105,7 +106,7 @@ func (s *store) GetExchanges(ctx context.Context) ([]*pb.Exchange, error) {
 func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security) error {
 	exchanges, err := s.queries.GetExchanges(ctx)
 	if err != nil {
-		return err
+		return oops.Internal(err)
 	}
 	m := make(map[string]bool, len(exchanges))
 	for _, ex := range exchanges {
@@ -116,7 +117,7 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 	for _, sec := range securities {
 		abbr := strings.ToLower(sec.GetExchange())
 		if !m[abbr] {
-			return ErrNotFound
+			return oops.NotFound("exchange %s not found", abbr)
 		}
 		params = append(params, model.InsertSecuritiesParams{
 			Exchange: abbr,
@@ -130,12 +131,16 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 		if errors.As(err, &pgErr) {
 			switch pgErr.Code {
 			case "23505":
-				return ErrAlreadyExists
+				return oops.AlreadyExists("one or more securities already exist")
 			case "23503":
-				return ErrNotFound
+				// It's unlikely to happen since the exchanges are checked in advance.
+				// Log a warning message.
+				log := zerolog.Ctx(ctx)
+				log.Warn().Err(err).Msg("one or more exchanges not found but precheck passed")
+				return oops.NotFound("one or more exchanges not found for securities")
 			}
 		}
-		return err
+		return oops.Internal(err)
 	}
 	return nil
 }
@@ -145,11 +150,11 @@ func (s *store) GetSecurities(ctx context.Context, exchange string) ([]*pb.Secur
 
 	rows, err := s.queries.GetSecurities(ctx, exchange)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 	if len(rows) == 0 {
 		if _, err := s.queries.GetExchange(ctx, exchange); err != nil {
-			return nil, ErrNotFound
+			return nil, oops.NotFound("exchange %s not found", exchange)
 		}
 		return nil, nil
 	}
@@ -179,7 +184,7 @@ func (s *store) CreateOHLCVs(ctx context.Context, exchange, symbol string, inter
 	case Interval1m:
 		return s.createOHLCVsPerMin(ctx, secID, ohlcvs)
 	default:
-		return ErrInvalidArgument
+		return oops.InvalidArgument("unsupported interval: %s", time.Duration(interval)*time.Second)
 	}
 }
 
@@ -196,8 +201,10 @@ func (s *store) createOHLCVsPerDay(ctx context.Context, secID uuid.UUID, ohlcvs 
 			Volume: int64(o.GetVolume()),
 		}
 	}
-	_, err := s.queries.InsertOHLCVsPerDay(ctx, params)
-	return err
+	if _, err := s.queries.InsertOHLCVsPerDay(ctx, params); err != nil {
+		return oops.Internal(err)
+	}
+	return nil
 }
 
 func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs []*pb.OHLCV) error {
@@ -215,7 +222,7 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 		}
 	}
 	if _, err := s.queries.InsertOHLCVsPerMin(ctx, minParams); err != nil {
-		return err
+		return oops.Internal(err)
 	}
 
 	// Aggregate into 30-minute buckets and upsert.
@@ -282,22 +289,25 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return err
+		return oops.Internal(err)
 	}
 	defer func() {
-		err := tx.Rollback(ctx)
-		if err != nil {
-			log.Println("testhelper: rollback transaction: ", err) // TODO: print more info with logger
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			log := zerolog.Ctx(ctx)
+			log.Warn().Err(err).Msg("failed to rollback transaction")
 		}
 	}()
 
 	tq := model.New(tx)
 	for _, p := range params {
 		if err := tq.UpsertOHLCVPer30Min(ctx, p); err != nil {
-			return err
+			return oops.Internal(err)
 		}
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return oops.Internal(err)
+	}
+	return nil
 }
 
 func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error) {
@@ -317,7 +327,7 @@ func (s *store) GetOHLCVs(ctx context.Context, exchange, symbol string, interval
 	case Interval1d, Interval1w, Interval1M:
 		return s.getOHLCVsPerDay(ctx, secID, from, before, interval)
 	default:
-		return nil, ErrInvalidArgument
+		return nil, oops.InvalidArgument("unsupported interval: %s", time.Duration(interval)*time.Second)
 	}
 }
 
@@ -327,7 +337,7 @@ func (s *store) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, befo
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
@@ -347,7 +357,7 @@ func (s *store) getOHLCVsPerMin(ctx context.Context, secID uuid.UUID, from, befo
 	case Interval1h:
 		d = time.Hour
 	default:
-		return nil, ErrInvalidArgument
+		return nil, oops.InvalidArgument("unsupported interval: %s", time.Duration(interval)*time.Second)
 	}
 
 	return aggregateOHLCVs(result, func(t time.Time) time.Time {
@@ -367,7 +377,7 @@ func (s *store) getOHLCVsPer30Min(ctx context.Context, secID uuid.UUID, from, be
 		pgtype.Timestamp{Time: before, Valid: true},
 	)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 
 	result := make([]*pb.OHLCV, len(rows))
@@ -388,7 +398,7 @@ func (s *store) getOHLCVsPerDay(ctx context.Context, secID uuid.UUID, from, befo
 		civil.DateOf(before),
 	)
 	if err != nil {
-		return nil, err
+		return nil, oops.Internal(err)
 	}
 	result := make([]*pb.OHLCV, len(rows))
 	for i, r := range rows {
