@@ -58,11 +58,6 @@ func (v *keycloakValidator) VerifyToken(ctx context.Context, tokenStr string) (*
 }
 
 // HTTPMiddleware creates a middleware for validating Authorization: Bearer <token>.
-//
-// NOTE: Currently unused. AuthService uses gRPC interceptors for authentication,
-// which also covers HTTP requests proxied through grpc-gateway. This middleware
-// is retained for potential use with standalone HTTP endpoints that are not
-// served via grpc-gateway (e.g. QuoteService streaming RPCs exposed over HTTP).
 func HTTPMiddleware(validator JWTValidator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
