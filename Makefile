@@ -62,7 +62,7 @@ stop-api:
 	-@docker stop compass-api-service
 
 start-quote:
-	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote
+	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --grpc-addr :50168
 
 stop-quote:
 	-@docker stop compass-quote-service
