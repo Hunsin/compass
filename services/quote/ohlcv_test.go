@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -125,8 +124,8 @@ func TestCreateOHLCVs(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m, zerolog.Nop())
-			_, err := svc.CreateOHLCVs(context.Background(), tc.req)
+
+			_, err := New(m).CreateOHLCVs(context.Background(), tc.req)
 			assertCode(t, err, tc.wantCode)
 		})
 	}
@@ -226,9 +225,9 @@ func TestGetOHLCVs(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m, zerolog.Nop())
+
 			stream := &mockOHLCVStream{ctx: context.Background()}
-			err := svc.GetOHLCVs(tc.req, stream)
+			err := New(m).GetOHLCVs(tc.req, stream)
 			assertCode(t, err, tc.wantCode)
 			if tc.wantCode == codes.OK && len(stream.sent) != tc.wantSent {
 				t.Errorf("sent %d rows, want %d", len(stream.sent), tc.wantSent)

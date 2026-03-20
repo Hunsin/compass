@@ -6,7 +6,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -122,9 +121,9 @@ func TestCreateSecurities(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m, zerolog.Nop())
+
 			stream := &mockSecurityRecvStream{messages: tc.messages, ctx: context.Background()}
-			err := svc.CreateSecurities(stream)
+			err := New(m).CreateSecurities(stream)
 			assertCode(t, err, tc.wantCode)
 			if tc.wantClosed && !stream.closed {
 				t.Error("expected SendAndClose to be called")
@@ -191,9 +190,9 @@ func TestGetSecurities(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m, zerolog.Nop())
+
 			stream := &mockSecuritySendStream{ctx: context.Background()}
-			err := svc.GetSecurities(tc.req, stream)
+			err := New(m).GetSecurities(tc.req, stream)
 			assertCode(t, err, tc.wantCode)
 			if tc.wantCode == codes.OK && len(stream.sent) != tc.wantSent {
 				t.Errorf("sent %d securities, want %d", len(stream.sent), tc.wantSent)

@@ -16,10 +16,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/Hunsin/compass/lib/logutil"
 	"github.com/Hunsin/compass/lib/oops"
 	"github.com/Hunsin/compass/postgres/gen/model"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
@@ -128,8 +128,17 @@ func (s *store) CreateSecurities(ctx context.Context, securities []*pb.Security)
 
 	if _, err := s.queries.InsertSecurities(ctx, params); err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return oops.AlreadyExists("one or more securities already exist")
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case "23505":
+				return oops.AlreadyExists("one or more securities already exist")
+			case "23503":
+				// It's unlikely to happen since the exchanges are checked in advance.
+				// Log a warning message.
+				log := zerolog.Ctx(ctx)
+				log.Warn().Err(err).Msg("one or more exchanges not found but precheck passed")
+				return oops.NotFound("one or more exchanges not found for securities")
+			}
 		}
 		return oops.Internal(err)
 	}
@@ -284,9 +293,8 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 	}
 	defer func() {
 		if err := tx.Rollback(ctx); err != nil {
-			if log, ok := logutil.FromContext(ctx); ok {
-				log.Warn().Err(err).Msg("failed to rollback transaction")
-			}
+			log := zerolog.Ctx(ctx)
+			log.Warn().Err(err).Msg("failed to rollback transaction")
 		}
 	}()
 

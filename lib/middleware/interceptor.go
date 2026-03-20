@@ -11,6 +11,17 @@ import (
 
 const internalMsg = "internal server error"
 
+// serverStream wraps grpc.ServerStream to inject a logger-enriched context,
+// ensuring the logger is available to stream handlers.
+type serverStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (ss serverStream) Context() context.Context {
+	return ss.ctx
+}
+
 // sanitize ensures that Internal status errors never expose raw error details
 // to the client. It replaces the message with a generic one and logs the
 // original as a safety net for errors not caught by service-level handlers.
@@ -38,7 +49,7 @@ func sanitize(log *zerolog.Logger, method string, err error) error {
 // Internal errors as a safety net against accidental detail disclosure.
 func UnaryInterceptor(log *zerolog.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		resp, err := handler(ctx, req)
+		resp, err := handler(log.WithContext(ctx), req)
 		return resp, sanitize(log, info.FullMethod, err)
 	}
 }
@@ -47,6 +58,7 @@ func UnaryInterceptor(log *zerolog.Logger) grpc.UnaryServerInterceptor {
 // Internal errors as a safety net against accidental detail disclosure.
 func StreamInterceptor(log *zerolog.Logger) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ss = serverStream{ss, log.WithContext(ss.Context())}
 		return sanitize(log, info.FullMethod, handler(srv, ss))
 	}
 }

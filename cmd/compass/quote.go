@@ -3,16 +3,15 @@ package main
 import (
 	"context"
 	"net"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 
 	"github.com/Hunsin/compass/lib/flags"
-	"github.com/Hunsin/compass/lib/logutil"
 	"github.com/Hunsin/compass/lib/middleware"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
@@ -63,13 +62,13 @@ func quoteCommand() *cli.Command {
 				return err
 			}
 
-			log := logutil.DefaultLogger(os.Stdout)
+			log := zerolog.Ctx(ctx)
 			srv := grpc.NewServer(
-				grpc.ChainUnaryInterceptor(middleware.UnaryInterceptor(&log)),
-				grpc.ChainStreamInterceptor(middleware.StreamInterceptor(&log)),
+				grpc.ChainUnaryInterceptor(middleware.UnaryInterceptor(log)),
+				grpc.ChainStreamInterceptor(middleware.StreamInterceptor(log)),
 			)
 			model := quoteLib.Connect(pool, rdb)
-			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model, log))
+			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
 
 			log.Info().Str("addr", lis.Addr().String()).Msg("starting quote service")
 			return srv.Serve(lis)

@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v3"
 
 	"github.com/Hunsin/compass/lib/flags"
-	"github.com/Hunsin/compass/lib/logutil"
 )
 
 func partitionCommand() *cli.Command {
@@ -46,8 +46,6 @@ func partitionAction(ctx context.Context, cmd *cli.Command) error {
 		targetTable = cmd.String(flags.PartitionTable.Name)
 	)
 
-	log := logutil.DefaultLogger(os.Stdout)
-	ctx = logutil.WithLogger(ctx, log)
 	switch targetTable {
 	case ohlcvDayTableName:
 		// ohlcv_per_day uses yearly partitions
@@ -221,10 +219,8 @@ func createYearPartition(ctx context.Context, pool *pgxpool.Pool, baseYear time.
 }
 
 func execQuery(ctx context.Context, pool *pgxpool.Pool, query, table, period string) error {
-	log, ok := logutil.FromContext(ctx)
-	if ok {
-		log.Printf("Executing: %s", query)
-	}
+	log := zerolog.Ctx(ctx)
+	log.Info().Msgf("Executing: %s", query)
 
 	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
