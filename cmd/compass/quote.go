@@ -24,7 +24,7 @@ func quoteCommand() *cli.Command {
 		Flags: []cli.Flag{
 			&flags.PostgresURL,
 			&flags.RedisURL,
-			&flags.ListenAddr,
+			&flags.GRPCAddr,
 			&flags.KeycloakURL,
 			&flags.KeycloakRealm,
 			&flags.KeycloakClientID,
@@ -63,7 +63,7 @@ func quoteCommand() *cli.Command {
 				}
 			}
 
-			lis, err := net.Listen("tcp", cmd.String(flags.ListenAddr.Name))
+			lis, err := net.Listen("tcp", cmd.String(flags.GRPCAddr.Name))
 			if err != nil {
 				return err
 			}

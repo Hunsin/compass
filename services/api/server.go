@@ -1,95 +1,62 @@
 package api
 
 import (
-	"encoding/json"
+	"context"
 	"log"
-	"net/http"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/Hunsin/compass/lib/auth"
+	pb "github.com/Hunsin/compass/protocols/gen/go/auth/v1"
 )
 
-// Server represents the HTTP JSON API server
+// Server implements the gRPC AuthService.
 type Server struct {
-	mux       *http.ServeMux
-	kcClient  auth.KeycloakClient
-	validator auth.JWTValidator
+	pb.UnimplementedAuthServiceServer
+	kcClient auth.KeycloakClient
 }
 
-// NewServer creates a new API server
-func NewServer(kcClient auth.KeycloakClient, validator auth.JWTValidator) *Server {
-	s := &Server{
-		mux:       http.NewServeMux(),
-		kcClient:  kcClient,
-		validator: validator,
+// NewServer creates a new AuthService gRPC server.
+func NewServer(kcClient auth.KeycloakClient) *Server {
+	return &Server{
+		kcClient: kcClient,
 	}
-	s.routes()
-	return s
 }
 
-func (s *Server) routes() {
-	// Public routes
-	s.mux.HandleFunc("POST /api/login", s.handleLogin)
-
-	// Protected routes
-	s.mux.Handle("GET /api/me", auth.HTTPMiddleware(s.validator)(http.HandlerFunc(s.handleMe)))
-}
-
-// ServeHTTP implements http.Handler
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
-}
-
-type loginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+// Login authenticates a user via Keycloak and returns OAuth2 tokens.
+func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	if req.GetUsername() == "" || req.GetPassword() == "" {
+		return nil, status.Error(codes.InvalidArgument, "username and password are required")
 	}
 
-	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
-		return
-	}
-
-	if req.Username == "" || req.Password == "" {
-		http.Error(w, "Username and password carry required", http.StatusBadRequest)
-		return
-	}
-
-	// Call Keycloak Token endpoint via password grant
-	tokenResp, err := s.kcClient.Login(r.Context(), req.Username, req.Password)
+	tokenResp, err := s.kcClient.Login(ctx, req.GetUsername(), req.GetPassword())
 	if err != nil {
-		log.Printf("Login failed for user %s: %v", req.Username, err)
-		http.Error(w, "Invalid credentials or upstream error", http.StatusUnauthorized)
-		return
+		log.Printf("Login failed for user %s: %v", req.GetUsername(), err)
+		return nil, status.Error(codes.Unauthenticated, "invalid credentials or upstream error")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(tokenResp); err != nil {
-		log.Printf("Failed to encode token response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
+	return &pb.LoginResponse{
+		AccessToken:      proto.String(tokenResp.AccessToken),
+		ExpiresIn:        proto.Int32(int32(tokenResp.ExpiresIn)),
+		RefreshExpiresIn: proto.Int32(int32(tokenResp.RefreshExpiresIn)),
+		RefreshToken:     proto.String(tokenResp.RefreshToken),
+		TokenType:        proto.String(tokenResp.TokenType),
+		IdToken:          proto.String(tokenResp.IdToken),
+		SessionState:     proto.String(tokenResp.SessionState),
+		Scope:            proto.String(tokenResp.Scope),
+	}, nil
 }
 
-// handleMe returns the user ID from the JWT token
-func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromContext(r.Context())
+// Me returns the authenticated user's information from the JWT token.
+func (s *Server) Me(ctx context.Context, _ *pb.MeRequest) (*pb.MeResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
-		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
-		return
+		return nil, status.Error(codes.Internal, "failed to get user info")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{
-		"user_id": userID,
-	})
-	if err != nil {
-		log.Printf("Failed to encode user info: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
+	return &pb.MeResponse{
+		UserId: proto.String(userID),
+	}, nil
 }

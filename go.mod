@@ -6,12 +6,14 @@ require (
 	cloud.google.com/go v0.123.0
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/google/uuid v1.6.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
 	github.com/hashicorp/golang-lru/v2 v2.0.8-0.20260224032529-5015efc0ee40
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.7.0
 	golang.org/x/sync v0.20.0
+	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11
 )

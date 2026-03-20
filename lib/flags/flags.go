@@ -14,35 +14,38 @@ var (
 		Sources: cli.EnvVars("REDIS_URL"),
 	}
 
-	ListenAddr = cli.StringFlag{
-		Name:    "listen-addr",
-		Sources: cli.EnvVars("LISTEN_ADDR"),
+	GRPCAddr = cli.StringFlag{
+		Name:    "grpc-addr",
+		Usage:   "gRPC server listen address",
+		Sources: cli.EnvVars("GRPC_ADDR"),
+	}
+
+	HTTPAddr = cli.StringFlag{
+		Name:    "http-addr",
+		Usage:   "HTTP gateway listen address (grpc-gateway JSON)",
+		Sources: cli.EnvVars("HTTP_ADDR"),
 	}
 
 	KeycloakURL = cli.StringFlag{
 		Name:    "keycloak-url",
-		Value:   "http://localhost:8080",
 		Usage:   "Base URL of Keycloak server",
 		Sources: cli.EnvVars("KEYCLOAK_URL"),
 	}
 
 	KeycloakRealm = cli.StringFlag{
 		Name:    "keycloak-realm",
-		Value:   "compass-realm",
 		Usage:   "Keycloak realm name",
 		Sources: cli.EnvVars("KEYCLOAK_REALM"),
 	}
 
 	KeycloakClientID = cli.StringFlag{
 		Name:    "keycloak-client-id",
-		Value:   "compass-backend",
 		Usage:   "Keycloak client ID",
 		Sources: cli.EnvVars("KEYCLOAK_CLIENT_ID"),
 	}
 
 	KeycloakClientSecret = cli.StringFlag{
 		Name:    "keycloak-client-secret",
-		Value:   "",
 		Usage:   "Keycloak client secret (optional for public clients)",
 		Sources: cli.EnvVars("KEYCLOAK_CLIENT_SECRET"),
 	}
