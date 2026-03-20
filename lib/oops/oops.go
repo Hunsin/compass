@@ -26,15 +26,12 @@ var httpToGRPCCodes = map[int]codes.Code{
 }
 
 // grpcToHTTPCodes maps gRPC codes to HTTP status codes.
-var grpcToHTTPCodes = map[codes.Code]int{
-	codes.InvalidArgument:  http.StatusBadRequest,
-	codes.Unauthenticated:  http.StatusUnauthorized,
-	codes.PermissionDenied: http.StatusForbidden,
-	codes.NotFound:         http.StatusNotFound,
-	codes.AlreadyExists:    http.StatusConflict,
-	codes.Internal:         http.StatusInternalServerError,
-	codes.Unimplemented:    http.StatusNotImplemented,
-	codes.Unavailable:      http.StatusServiceUnavailable,
+var grpcToHTTPCodes = make(map[codes.Code]int)
+
+func init() {
+	for k, v := range httpToGRPCCodes {
+		grpcToHTTPCodes[v] = k
+	}
 }
 
 // HTTPToGRPC returns the gRPC code for an HTTP status code.
@@ -100,7 +97,11 @@ func (e *Error) Error() string {
 // response status.
 // Unlike WriteHTTP, the raw cause message is included for Internal errors.
 func (e *Error) GRPCStatus() *status.Status {
-	return status.New(e.code, e.Error())
+	msg := e.msg
+	if e.cause != nil {
+		msg = e.cause.Error()
+	}
+	return status.New(e.code, msg)
 }
 
 // WriteHTTP writes the associated HTTP status code and message to w.

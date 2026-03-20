@@ -11,7 +11,7 @@ type Service struct {
 	model quoteLib.Model
 }
 
-// New creates a new Service using the given model and logger.
+// New creates a new Service using the given model.
 func New(m quoteLib.Model) *Service {
 	return &Service{model: m}
 }

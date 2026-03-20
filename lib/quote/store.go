@@ -292,7 +292,7 @@ func (s *store) createOHLCVsPerMin(ctx context.Context, secID uuid.UUID, ohlcvs 
 		return oops.Internal(err)
 	}
 	defer func() {
-		if err := tx.Rollback(ctx); err != nil {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			log := zerolog.Ctx(ctx)
 			log.Warn().Err(err).Msg("failed to rollback transaction")
 		}

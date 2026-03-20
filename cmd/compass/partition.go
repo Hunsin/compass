@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v3"
 
 	"github.com/Hunsin/compass/lib/flags"
@@ -112,7 +111,7 @@ func partitionAction(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	log.Info().Msg("Partitions created successfully.")
+	zerolog.Ctx(ctx).Info().Msg("Partitions created successfully.")
 	return nil
 }
 
