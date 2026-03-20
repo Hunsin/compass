@@ -1,6 +1,11 @@
+# generated codes
+bin
 postgres/gen
 protocols/gen
 **/*_mocks.go
+
+# local environments
+.claude
 .venv
-.vscode/
-bin/
+.vscode
+**/.DS_Store

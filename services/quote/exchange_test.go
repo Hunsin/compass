@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/Hunsin/compass/lib/oops"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
@@ -84,7 +85,7 @@ func TestCreateExchange(t *testing.T) {
 			name: "already exists",
 			req:  &pb.Exchange{Abbr: strPtr("twse"), Name: strPtr("TWSE"), Timezone: strPtr("Asia/Taipei")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(quoteLib.ErrAlreadyExists)
+				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(oops.AlreadyExists("exchange already exists"))
 			},
 			wantCode: codes.AlreadyExists,
 		},
@@ -92,7 +93,7 @@ func TestCreateExchange(t *testing.T) {
 			name: "internal error",
 			req:  &pb.Exchange{Abbr: strPtr("twse"), Name: strPtr("TWSE"), Timezone: strPtr("Asia/Taipei")},
 			stub: func(m *quoteLib.MockModel) {
-				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(errors.New("db down"))
+				m.EXPECT().CreateExchange(mock.Anything, mock.Anything).Return(oops.Internal(errors.New("db down")))
 			},
 			wantCode: codes.Internal,
 		},
@@ -112,8 +113,8 @@ func TestCreateExchange(t *testing.T) {
 			if tc.stub != nil {
 				tc.stub(m)
 			}
-			svc := New(m)
-			_, err := svc.CreateExchange(context.Background(), tc.req)
+
+			_, err := New(m).CreateExchange(context.Background(), tc.req)
 			assertCode(t, err, tc.wantCode)
 		})
 	}
@@ -123,10 +124,10 @@ func TestGetExchanges_Success(t *testing.T) {
 	abbr, name, tz := "twse", "TWSE", "Asia/Taipei"
 	m := quoteLib.NewMockModel(t)
 	m.On("GetExchanges", mock.Anything).Return([]*pb.Exchange{{Abbr: &abbr, Name: &name, Timezone: &tz}}, nil)
-	svc := New(m)
+
 	stream := &mockExchangeStream{ctx: context.Background()}
 
-	if err := svc.GetExchanges(&emptypb.Empty{}, stream); err != nil {
+	if err := New(m).GetExchanges(&emptypb.Empty{}, stream); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(stream.sent) != 1 {
@@ -139,8 +140,8 @@ func TestGetExchanges_Success(t *testing.T) {
 
 func TestGetExchanges_Error(t *testing.T) {
 	m := quoteLib.NewMockModel(t)
-	m.On("GetExchanges", mock.Anything).Return(nil, errors.New("db down"))
-	svc := New(m)
+	m.On("GetExchanges", mock.Anything).Return(nil, oops.Internal(errors.New("db down")))
+
 	stream := &mockExchangeStream{ctx: context.Background()}
-	assertCode(t, svc.GetExchanges(&emptypb.Empty{}, stream), codes.Internal)
+	assertCode(t, New(m).GetExchanges(&emptypb.Empty{}, stream), codes.Internal)
 }
