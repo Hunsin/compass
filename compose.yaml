@@ -21,7 +21,6 @@ services:
       - .env
     volumes:
       - ${ROOT_DIR:?error}:/compass
-      - app:/go/bin
       - /var/run/docker.sock:/var/run/docker.sock
 
   migrate:
@@ -80,9 +79,8 @@ services:
     image: compass/app:${GIT_COMMIT_SHA:?error}
     env_file:
       - .env
-    entrypoint: compass
     volumes:
-      - app:/usr/local/bin:ro
+      - ./bin:/app:ro
     depends_on:
       - postgres
     networks:
@@ -123,10 +121,6 @@ services:
         condition: service_healthy
     networks:
       - compass
-
-volumes:
-  app:
-    name: compass-app
 
 networks:
   compass:

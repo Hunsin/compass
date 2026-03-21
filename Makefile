@@ -52,8 +52,7 @@ partition:
 build:
 	@$(COMPOSE_RUN) -e CGO_ENABLED=0 dev go build -o bin/compass ./cmd/compass
 
-install: start migrate-up sqlc proto mock
-	@$(COMPOSE_RUN) dev go install ./...
+install: start migrate-up sqlc proto mock build
 
 start-api:
 	@$(COMPOSE_RUN) -d --name compass-api-service -p 50188:50188 -p 50189:50189 app api --grpc-addr :50188 --http-addr :50189
