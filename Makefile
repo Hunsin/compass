@@ -50,7 +50,9 @@ partition:
 	@bash scripts/setup_partitions.sh
 
 build:
-	@$(COMPOSE_RUN) -e CGO_ENABLED=0 dev go build -o bin/compass ./cmd/compass
+	-@docker rmi compass/app:$(GIT_COMMIT_SHA)
+	@$(COMPOSE_RUN) dev go install ./...
+	@docker build -t compass/app:$(GIT_COMMIT_SHA) -f dockerfiles/app.Dockerfile .
 
 install: start migrate-up sqlc proto mock build
 
