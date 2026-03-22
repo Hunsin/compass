@@ -1,7 +1,6 @@
 package quote
 
 import (
-	"errors"
 	"io"
 
 	"google.golang.org/grpc"
@@ -9,7 +8,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 )
 
@@ -33,14 +31,7 @@ func (s *Service) CreateSecurities(stream grpc.ClientStreamingServer[pb.Security
 	}
 
 	if err := s.model.CreateSecurities(stream.Context(), securities); err != nil {
-		switch {
-		case errors.Is(err, quoteLib.ErrNotFound):
-			return status.Error(codes.NotFound, "exchange not found")
-		case errors.Is(err, quoteLib.ErrAlreadyExists):
-			return status.Error(codes.AlreadyExists, "security already exists")
-		default:
-			return status.Error(codes.Internal, err.Error())
-		}
+		return err
 	}
 	return stream.SendAndClose(&emptypb.Empty{})
 }
@@ -53,10 +44,7 @@ func (s *Service) GetSecurities(ex *pb.Exchange, stream grpc.ServerStreamingServ
 
 	secs, err := s.model.GetSecurities(stream.Context(), abbr)
 	if err != nil {
-		if errors.Is(err, quoteLib.ErrNotFound) {
-			return status.Errorf(codes.NotFound, "exchange %q not found", abbr)
-		}
-		return status.Error(codes.Internal, err.Error())
+		return err
 	}
 
 	for _, sec := range secs {

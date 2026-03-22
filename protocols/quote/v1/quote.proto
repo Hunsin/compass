@@ -45,6 +45,10 @@ message GetOHLCVsRequest {
   google.protobuf.Timestamp before = 5; // End timestamp, exclusive
 }
 
+// grpc-gateway streaming support notes:
+//   - Server-side streaming RPCs are exposed as newline-delimited JSON (NDJSON) over HTTP.
+//   - Client-side streaming RPCs (e.g. CreateSecurities) are NOT supported by grpc-gateway.
+//   - Bidirectional streaming RPCs are NOT supported by grpc-gateway.
 service QuoteService {
   rpc CreateExchange(Exchange) returns (google.protobuf.Empty);
   rpc GetExchanges(google.protobuf.Empty) returns (stream Exchange);

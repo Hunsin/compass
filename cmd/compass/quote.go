@@ -7,10 +7,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
 
+	"github.com/Hunsin/compass/lib/auth"
 	"github.com/Hunsin/compass/lib/flags"
+	"github.com/Hunsin/compass/lib/middleware"
 	quoteLib "github.com/Hunsin/compass/lib/quote"
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
 	quoteSvc "github.com/Hunsin/compass/services/quote"
@@ -20,7 +23,14 @@ func quoteCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "quote",
 		Usage: "Start the Quote gRPC service",
-		Flags: []cli.Flag{&flags.PostgresURL, &flags.RedisURL, &flags.ListenAddr},
+		Flags: []cli.Flag{
+			&flags.PostgresURL,
+			&flags.RedisURL,
+			&flags.GRPCAddr,
+			&flags.KeycloakURL,
+			&flags.KeycloakRealm,
+			&flags.KeycloakClientID,
+		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 
 			// initialize the Postgres client
@@ -55,15 +65,35 @@ func quoteCommand() *cli.Command {
 				}
 			}
 
-			lis, err := net.Listen("tcp", cmd.String(flags.ListenAddr.Name))
+			lis, err := net.Listen("tcp", cmd.String(flags.GRPCAddr.Name))
 			if err != nil {
 				return err
 			}
 
-			srv := grpc.NewServer()
+			kcURL := cmd.String(flags.KeycloakURL.Name)
+			kcRealm := cmd.String(flags.KeycloakRealm.Name)
+			kcClientID := cmd.String(flags.KeycloakClientID.Name)
+
+			validator, err := auth.NewKeycloakValidator(ctx, kcURL, kcRealm, kcClientID)
+			if err != nil {
+				return err
+			}
+
+			log := zerolog.Ctx(ctx)
+			srv := grpc.NewServer(
+				grpc.ChainUnaryInterceptor(
+					auth.GRPCUnaryInterceptor(validator),
+					middleware.UnaryInterceptor(log),
+				),
+				grpc.ChainStreamInterceptor(
+					auth.GRPCStreamInterceptor(validator),
+					middleware.StreamInterceptor(log),
+				),
+			)
 			model := quoteLib.Connect(pool, rdb)
 			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
 
+			log.Info().Str("addr", lis.Addr().String()).Msg("starting quote service")
 			return srv.Serve(lis)
 		},
 	}

@@ -2,7 +2,6 @@ package quote
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	pb "github.com/Hunsin/compass/protocols/gen/go/quote/v1"
@@ -19,26 +18,18 @@ const (
 	Interval1M  int64 = 2592000
 )
 
-// ErrNotFound is returned when a requested resource does not exist.
-var ErrNotFound = errors.New("not found")
-
-// ErrAlreadyExists is returned when an entity with the same key already exists.
-var ErrAlreadyExists = errors.New("already exists")
-
-var ErrInvalidArgument = errors.New("invalid argument")
-
 // Model defines the domain operations for the Quote service.
 type Model interface {
 	CreateExchange(ctx context.Context, ex *pb.Exchange) error
 	GetExchanges(ctx context.Context) ([]*pb.Exchange, error)
 	CreateSecurities(ctx context.Context, securities []*pb.Security) error
 	// GetSecurities returns all securities for the given exchange abbreviation.
-	// Returns ErrNotFound if the exchange does not exist.
+	// Returns an oops.NotFound error if the exchange does not exist.
 	GetSecurities(ctx context.Context, exchange string) ([]*pb.Security, error)
 	// CreateOHLCVs stores OHLCV data. interval must be Interval1m or Interval1d.
-	// Returns ErrInvalidArgument if the interval is not supported.
+	// Returns an oops.InvalidArgument error if the interval is not supported.
 	CreateOHLCVs(ctx context.Context, exchange, symbol string, interval int64, ohlcvs []*pb.OHLCV) error
 	// GetOHLCVs retrieves OHLCV data aggregated to the requested interval.
-	// Returns ErrInvalidArgument if the interval is not supported.
+	// Returns an oops.InvalidArgument error if the interval is not supported.
 	GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error)
 }

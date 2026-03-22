@@ -21,7 +21,6 @@ services:
       - .env
     volumes:
       - ${ROOT_DIR:?error}:/compass
-      - app:/go/bin
       - /var/run/docker.sock:/var/run/docker.sock
 
   migrate:
@@ -80,9 +79,8 @@ services:
     image: compass/app:${GIT_COMMIT_SHA:?error}
     env_file:
       - .env
-    entrypoint: compass
     volumes:
-      - app:/usr/local/bin:ro
+      - ./bin:/app:ro
     depends_on:
       - postgres
     networks:
@@ -90,9 +88,39 @@ services:
     profiles:
       - app
 
-volumes:
-  app:
-    name: compass-app
+  keycloak-postgres:
+    image: postgres:18.2-alpine3.23
+    container_name: compass-keycloak-postgres
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      POSTGRES_DB: ${KEYCLOAK_DB}
+    healthcheck:
+      test: pg_isready
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - compass
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: compass-keycloak
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://compass-keycloak-postgres:5432/${KEYCLOAK_DB}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    ports:
+      - "8180:8080"
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+    networks:
+      - compass
 
 networks:
   compass:
