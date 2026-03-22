@@ -50,7 +50,9 @@ partition:
 	@bash scripts/setup_partitions.sh
 
 build:
-	@$(COMPOSE_RUN) dev go install ./...
+	-@docker rmi compass/app:$(GIT_COMMIT_SHA)
+	@$(COMPOSE_RUN) -e GOBIN=/compass/bin dev go install ./...
+	@docker build -t compass/app:$(GIT_COMMIT_SHA) -f dockerfiles/app.Dockerfile .
 
 install: start migrate-up sqlc proto mock build
 

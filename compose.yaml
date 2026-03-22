@@ -79,8 +79,6 @@ services:
     image: compass/app:${GIT_COMMIT_SHA:?error}
     env_file:
       - .env
-    volumes:
-      - ./bin:/app:ro
     depends_on:
       - postgres
     networks:
