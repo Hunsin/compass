@@ -80,9 +80,6 @@ services:
     image: compass/app:${GIT_COMMIT_SHA:?error}
     env_file:
       - .env
-    entrypoint: compass
-    volumes:
-      - app:/usr/local/bin:ro
     depends_on:
       - postgres
     networks:
