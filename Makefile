@@ -54,8 +54,7 @@ build:
 	@$(COMPOSE_RUN) dev go install ./...
 	@docker build -t compass/app:$(GIT_COMMIT_SHA) -f dockerfiles/app.Dockerfile .
 
-install: start migrate-up sqlc proto mock
-	@$(COMPOSE_RUN) dev go install ./...
+install: start migrate-up sqlc proto mock build
 
 start-quote:
 	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --listen-addr :50168
