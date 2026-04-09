@@ -60,7 +60,28 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Check if migration files changed
+        id: migrate-changes
+        run: |
+          # Find the previous tag to compare against
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found, will build migrate image"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            CHANGED=$(git diff --name-only "$PREV_TAG" HEAD -- postgres/migrations/ dockerfiles/migrate.Dockerfile)
+            if [ -n "$CHANGED" ]; then
+              echo "Migration files changed since $PREV_TAG:"
+              echo "$CHANGED"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No migration files changed since $PREV_TAG, skipping build"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
       - name: Docker metadata (migrate)
+        if: steps.migrate-changes.outputs.changed == 'true'
         id: meta-migrate
         uses: docker/metadata-action@v5
         with:
@@ -70,6 +91,7 @@ jobs:
             type=semver,pattern={{version}}
 
       - name: Build and push migrate image
+        if: steps.migrate-changes.outputs.changed == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
