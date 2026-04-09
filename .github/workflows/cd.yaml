@@ -37,8 +37,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata
-        id: meta
+      - name: Docker metadata (app)
+        id: meta-app
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}/compass-app
@@ -46,13 +46,33 @@ jobs:
             type=sha,format=short
             type=semver,pattern={{version}}
 
-      - name: Build and push Image
+      - name: Build and push app image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: dockerfiles/app.Dockerfile
           push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.push_to_registry == true) }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-app.outputs.tags }}
+          labels: ${{ steps.meta-app.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker metadata (migrate)
+        id: meta-migrate
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/compass-migrate
+          tags: |
+            type=sha,format=short
+            type=semver,pattern={{version}}
+
+      - name: Build and push migrate image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: dockerfiles/migrate.Dockerfile
+          push: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.push_to_registry == true) }}
+          tags: ${{ steps.meta-migrate.outputs.tags }}
+          labels: ${{ steps.meta-migrate.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
