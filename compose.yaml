@@ -21,7 +21,6 @@ services:
       - .env
     volumes:
       - ${ROOT_DIR:?error}:/compass
-      - app:/go/bin
       - /var/run/docker.sock:/var/run/docker.sock
 
   migrate:
@@ -53,6 +52,8 @@ services:
     container_name: compass-postgres
     env_file:
       - .env
+    volumes:
+      - ./scripts/create-databases.sh:/docker-entrypoint-initdb.d/create-databases.sh:ro
     healthcheck:
       test: pg_isready
       interval: 10s
@@ -87,9 +88,33 @@ services:
     profiles:
       - app
 
-volumes:
-  app:
-    name: compass-app
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: compass-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://compass-postgres:5432/${KEYCLOAK_DB}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HEALTH_ENABLED: true
+    volumes:
+      - ./scripts/compass-realm.json:/opt/keycloak/data/import/compass-realm.json:ro
+    healthcheck:
+      test: bash -c 'exec 3<>/dev/tcp/localhost/9000'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "8180:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - compass
 
 networks:
   compass:

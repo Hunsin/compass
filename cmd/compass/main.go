@@ -18,8 +18,9 @@ func main() {
 	cmd := &cli.Command{
 		Name: "compass",
 		Commands: []*cli.Command{
-			quoteCommand(),
+			apiCommand(),
 			partitionCommand(),
+			quoteCommand(),
 		},
 	}
 

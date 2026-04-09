@@ -9,6 +9,10 @@ plugins:
     out: .
     opt:
       - module=github.com/Hunsin/compass
+  - remote: buf.build/grpc-ecosystem/gateway:v2.28.0
+    out: .
+    opt:
+      - module=github.com/Hunsin/compass
   - remote: buf.build/protocolbuffers/python:v33.5
     out: protocols/gen/python
   - remote: buf.build/grpc/python:v1.78.1

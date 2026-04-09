@@ -15,6 +15,10 @@ require-template-schema-exists: true
 template: testify
 template-schema: "{{.Template}}.schema.json"
 packages:
+  github.com/Hunsin/compass/lib/auth:
+    interfaces:
+      KeycloakClient:
+      JWTValidator:
   github.com/Hunsin/compass/lib/quote:
     interfaces:
       Model:

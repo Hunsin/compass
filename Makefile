@@ -8,10 +8,10 @@ COMPOSE_RUN = docker compose run --rm --remove-orphans
 start:
 	@docker compose up --wait -d
 
-stop: stop-quote
+stop: stop-api stop-quote
 	@docker compose down --remove-orphans
 
-clean: stop-quote
+clean: stop-api stop-quote
 	-@docker compose down --remove-orphans --rmi local --volumes
 	-@docker volume rm compass-app
 
@@ -50,13 +50,20 @@ partition:
 	@bash scripts/setup_partitions.sh
 
 build:
+	-@docker rmi compass/app:$(GIT_COMMIT_SHA)
 	@$(COMPOSE_RUN) dev go install ./...
-	@docker build --no-cache -t compass/app:$(GIT_COMMIT_SHA) -f dockerfiles/app.Dockerfile .
+	@docker build -t compass/app:$(GIT_COMMIT_SHA) -f dockerfiles/app.Dockerfile .
 
 install: start migrate-up sqlc proto mock build
 
+start-api:
+	@$(COMPOSE_RUN) -d --name compass-api-service -p 50188:50188 -p 50189:50189 app api --grpc-addr :50188 --http-addr :50189
+
+stop-api:
+	-@docker stop compass-api-service
+
 start-quote:
-	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --listen-addr :50168
+	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --grpc-addr :50168
 
 stop-quote:
 	-@docker stop compass-quote-service
