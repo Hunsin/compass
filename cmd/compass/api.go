@@ -9,6 +9,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/Hunsin/compass/lib/auth"
 	"github.com/Hunsin/compass/lib/flags"
@@ -44,13 +46,18 @@ func apiCommand() *cli.Command {
 			}
 
 			// 3. Create gRPC server with auth interceptor (Login is excluded from auth)
+			ignoreMethods := []string{pb.AuthService_Login_FullMethodName, "/grpc.health.v1.Health/Check"}
 			grpcSrv := grpc.NewServer(
 				grpc.ChainUnaryInterceptor(
-					auth.GRPCUnaryInterceptor(validator, pb.AuthService_Login_FullMethodName),
+					auth.GRPCUnaryInterceptor(validator, ignoreMethods...),
 				),
 			)
 			svc := api.NewServer(kcClient)
 			pb.RegisterAuthServiceServer(grpcSrv, svc)
+
+			hs := health.NewServer()
+			hs.SetServingStatus(pb.AuthService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+			healthpb.RegisterHealthServer(grpcSrv, hs)
 
 			// 4. Start gRPC listener
 			grpcAddr := cmd.String(flags.GRPCAddr.Name)
