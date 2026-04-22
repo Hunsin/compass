@@ -46,7 +46,7 @@ func apiCommand() *cli.Command {
 			}
 
 			// 3. Create gRPC server with auth interceptor (Login is excluded from auth)
-			ignoreMethods := []string{pb.AuthService_Login_FullMethodName, "/grpc.health.v1.Health/Check"}
+			ignoreMethods := []string{pb.AuthService_Login_FullMethodName, healthpb.Health_Check_FullMethodName}
 			grpcSrv := grpc.NewServer(
 				grpc.ChainUnaryInterceptor(
 					auth.GRPCUnaryInterceptor(validator, ignoreMethods...),
@@ -57,6 +57,7 @@ func apiCommand() *cli.Command {
 
 			hs := health.NewServer()
 			hs.SetServingStatus(pb.AuthService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+			hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 			healthpb.RegisterHealthServer(grpcSrv, hs)
 
 			// 4. Start gRPC listener

@@ -84,11 +84,11 @@ func quoteCommand() *cli.Command {
 			log := zerolog.Ctx(ctx)
 			srv := grpc.NewServer(
 				grpc.ChainUnaryInterceptor(
-					auth.GRPCUnaryInterceptor(validator, "/grpc.health.v1.Health/Check"),
+					auth.GRPCUnaryInterceptor(validator, healthpb.Health_Check_FullMethodName),
 					middleware.UnaryInterceptor(log),
 				),
 				grpc.ChainStreamInterceptor(
-					auth.GRPCStreamInterceptor(validator, "/grpc.health.v1.Health/Watch"),
+					auth.GRPCStreamInterceptor(validator, healthpb.Health_Watch_FullMethodName),
 					middleware.StreamInterceptor(log),
 				),
 			)
@@ -97,6 +97,7 @@ func quoteCommand() *cli.Command {
 
 			hs := health.NewServer()
 			hs.SetServingStatus(pb.QuoteService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+			hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 			healthpb.RegisterHealthServer(srv, hs)
 
 			log.Info().Str("addr", lis.Addr().String()).Msg("starting quote service")
