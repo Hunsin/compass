@@ -32,4 +32,6 @@ type Model interface {
 	// GetOHLCVs retrieves OHLCV data aggregated to the requested interval.
 	// Returns an oops.InvalidArgument error if the interval is not supported.
 	GetOHLCVs(ctx context.Context, exchange, symbol string, interval int64, from, before time.Time) ([]*pb.OHLCV, error)
+	// Health checks connectivity to underlying dependencies (database and cache).
+	Health(ctx context.Context) error
 }

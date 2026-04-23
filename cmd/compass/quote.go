@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/Hunsin/compass/lib/auth"
 	"github.com/Hunsin/compass/lib/flags"
@@ -82,16 +83,17 @@ func quoteCommand() *cli.Command {
 			log := zerolog.Ctx(ctx)
 			srv := grpc.NewServer(
 				grpc.ChainUnaryInterceptor(
-					auth.GRPCUnaryInterceptor(validator),
+					auth.GRPCUnaryInterceptor(validator, healthpb.Health_Check_FullMethodName),
 					middleware.UnaryInterceptor(log),
 				),
 				grpc.ChainStreamInterceptor(
-					auth.GRPCStreamInterceptor(validator),
+					auth.GRPCStreamInterceptor(validator, healthpb.Health_Watch_FullMethodName),
 					middleware.StreamInterceptor(log),
 				),
 			)
-			model := quoteLib.Connect(pool, rdb)
-			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
+			handler := quoteSvc.New(quoteLib.Connect(pool, rdb))
+			pb.RegisterQuoteServiceServer(srv, handler)
+			healthpb.RegisterHealthServer(srv, handler)
 
 			log.Info().Str("addr", lis.Addr().String()).Msg("starting quote service")
 			return srv.Serve(lis)
