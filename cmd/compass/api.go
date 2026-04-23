@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
@@ -74,17 +75,26 @@ func apiCommand() *cli.Command {
 				}
 			}()
 
-			// 5. Create grpc-gateway mux and register in-process handler
+			// 5. Create health check client
+			opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+			conn, err := grpc.NewClient(grpcAddr, opts...)
+			if err != nil {
+				return err
+			}
+			defer conn.Close()
+			hc := healthpb.NewHealthClient(conn)
+
+			// 6. Create grpc-gateway mux and register in-process handler
 			//
 			// NOTE: In-process mode (RegisterAuthServiceHandlerServer) bypasses gRPC
 			// interceptors. JWT authentication for HTTP requests is handled by
 			// auth.HTTPMiddleware wrapping the gateway mux below.
-			gwMux := runtime.NewServeMux()
-			if err := pb.RegisterAuthServiceHandlerServer(ctx, gwMux, svc); err != nil {
+			gwMux := runtime.NewServeMux(runtime.WithHealthzEndpoint(hc))
+			if err := pb.RegisterAuthServiceHandlerFromEndpoint(ctx, gwMux, grpcAddr, opts); err != nil {
 				return err
 			}
 
-			// 6. Start HTTP listener (JSON gateway) with auth middleware
+			// 7. Start HTTP listener (JSON gateway) with auth middleware
 			// Login endpoint is public; all other routes require a valid JWT.
 			httpAddr := cmd.String(flags.HTTPAddr.Name)
 			log.Info().Str("addr", httpAddr).Msg("HTTP gateway listening")
@@ -92,6 +102,7 @@ func apiCommand() *cli.Command {
 				auth.HTTPMiddleware(validator),
 				gwMux,
 				"/api/login",
+				"/healthz",
 			)
 			return http.ListenAndServe(httpAddr, handler)
 		},
