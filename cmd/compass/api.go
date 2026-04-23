@@ -90,7 +90,7 @@ func apiCommand() *cli.Command {
 			// interceptors. JWT authentication for HTTP requests is handled by
 			// auth.HTTPMiddleware wrapping the gateway mux below.
 			gwMux := runtime.NewServeMux(runtime.WithHealthzEndpoint(hc))
-			if err := pb.RegisterAuthServiceHandlerFromEndpoint(ctx, gwMux, grpcAddr, opts); err != nil {
+			if err := pb.RegisterAuthServiceHandlerServer(ctx, gwMux, svc); err != nil {
 				return err
 			}
 

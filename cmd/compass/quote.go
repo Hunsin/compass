@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v3"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/Hunsin/compass/lib/auth"
@@ -92,13 +91,9 @@ func quoteCommand() *cli.Command {
 					middleware.StreamInterceptor(log),
 				),
 			)
-			model := quoteLib.Connect(pool, rdb)
-			pb.RegisterQuoteServiceServer(srv, quoteSvc.New(model))
-
-			hs := health.NewServer()
-			hs.SetServingStatus(pb.QuoteService_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
-			hs.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
-			healthpb.RegisterHealthServer(srv, hs)
+			handler := quoteSvc.New(quoteLib.Connect(pool, rdb))
+			pb.RegisterQuoteServiceServer(srv, handler)
+			healthpb.RegisterHealthServer(srv, handler)
 
 			log.Info().Str("addr", lis.Addr().String()).Msg("starting quote service")
 			return srv.Serve(lis)
