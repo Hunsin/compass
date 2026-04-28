@@ -28,6 +28,7 @@ import (
 type DBTX interface {
 	model.DBTX
 	Begin(context.Context) (pgx.Tx, error)
+	Ping(context.Context) error
 }
 
 // store is a PostgreSQL-backed implementation of Model.
@@ -524,4 +525,18 @@ func numericToFloat(n pgtype.Numeric) float64 {
 		f *= math.Pow10(int(n.Exp))
 	}
 	return f
+}
+
+func (s *store) Health(ctx context.Context) error {
+	if err := s.db.Ping(ctx); err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to ping database")
+		return err
+	}
+
+	_, err := s.cache.Get(ctx, "foo")
+	if err != nil && !errors.Is(err, ErrCacheMiss) {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to connect Redis")
+		return err
+	}
+	return nil
 }
