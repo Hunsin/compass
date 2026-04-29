@@ -1,34 +1,17 @@
 # Compass — Claude Guidelines
 
-## Project Layout
+See README.md for project structure and make targets.
 
-- `cmd/compass/` — CLI entry point and subcommands (one file per subcommand)
-- `lib/` — reusable packages; implementations are unexported, interfaces exported
-  - `lib/auth` — JWT/Keycloak validation; exports `JWTValidator` and `KeycloakClient` interfaces plus gRPC/HTTP interceptors
-  - `lib/flags` — shared `cli.Flag` definitions (Postgres URL, Redis URL, gRPC addr, …)
-  - `lib/middleware` — gRPC middleware (last-resort error/panic handling)
-  - `lib/oops` — domain error helpers (`oops.Internal`, `oops.NotFound`, …)
-  - `lib/quote` — quote domain: `Model` interface, LRU cache, Postgres store
-- `services/` — gRPC service handlers; thin layer, delegates to `lib/`
-  - `services/api` — AuthService (Login via Keycloak)
-  - `services/quote` — QuoteService (exchange, OHLCV, security)
+## Key Packages
+
+- `lib/auth` — JWT/Keycloak validation; exports `JWTValidator` and `KeycloakClient` interfaces plus gRPC/HTTP interceptors
+- `lib/flags` — shared `cli.Flag` definitions (Postgres URL, Redis URL, gRPC addr, …)
+- `lib/middleware` — gRPC middleware (last-resort error/panic handling)
+- `lib/oops` — domain error helpers (`oops.Internal`, `oops.NotFound`, …)
+- `lib/quote` — quote domain: `Model` interface, LRU cache, Postgres store
+- `services/api` — AuthService (Login via Keycloak)
+- `services/quote` — QuoteService (exchange, OHLCV, security)
 - `postgres/gen/`, `protocols/gen/` — generated code, do not edit manually
-
-## Common Make Targets
-
-All dev operations run inside Docker via `docker compose`; no local Go toolchain needed.
-
-| Command | Purpose |
-|---|---|
-| `make start` | Start third-party containers (Postgres, Redis, ...etc) |
-| `make build` | Build the app Docker image |
-| `make test` | Run unit tests |
-| `make test-all` | Run unit + integration tests (sets up partitions first) |
-| `make lint` | Run `golangci-lint` |
-| `make sqlc` | Regenerate `postgres/gen/` from SQL queries |
-| `make proto` | Regenerate `protocols/gen/` from `.proto` files |
-| `make mock` | Regenerate mocks via `mockery` |
-| `make migrate-up` / `migrate-down` | Run DB migrations |
 
 ## Imports
 
