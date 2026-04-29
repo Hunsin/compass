@@ -5,7 +5,7 @@ protocols/gen
 **/*_mocks.go
 
 # local environments
-.claude
+.claude/settings.local.json
 .venv
 .vscode
 **/.DS_Store
