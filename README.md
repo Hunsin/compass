@@ -37,6 +37,12 @@ make proto
 # Generate mock implementations
 make mock
 
+# Lint
+make lint
+
+# Build app Docker image
+make build
+
 # Run tests
 make test     # Unit tests
 make test-all # All tests including integration tests
