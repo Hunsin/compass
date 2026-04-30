@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(go build:*)",
       "Bash(go get:*)",
       "Bash(go test:*)",
       "Bash(gh issue:*)",
