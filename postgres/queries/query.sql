@@ -56,3 +56,23 @@ INSERT INTO ohlcv_per_day (
 
 -- name: GetOHLCVsPerDay :many
 SELECT * FROM ohlcv_per_day WHERE sec_id = @sec_id AND date >= @start AND date < @before ORDER BY date;
+
+-- name: InsertMarginTransactions :copyfrom
+INSERT INTO margin_transactions (
+    sec_id, date,
+    margin_purchase_buy, margin_purchase_redemption, margin_purchase_cash_repayment,
+    margin_purchase_balance, margin_purchase_limit,
+    short_sale, short_sale_redemption, short_sale_stock_repayment,
+    short_sale_balance, short_sale_limit,
+    quota_next_day
+) VALUES (
+    @sec_id, @date,
+    @margin_purchase_buy, @margin_purchase_redemption, @margin_purchase_cash_repayment,
+    @margin_purchase_balance, @margin_purchase_limit,
+    @short_sale, @short_sale_redemption, @short_sale_stock_repayment,
+    @short_sale_balance, @short_sale_limit,
+    @quota_next_day
+);
+
+-- name: GetMarginTransactions :many
+SELECT * FROM margin_transactions WHERE sec_id = @sec_id AND date >= @start AND date < @before ORDER BY date;

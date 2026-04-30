@@ -21,6 +21,7 @@ func main() {
 			apiCommand(),
 			partitionCommand(),
 			quoteCommand(),
+			statisticsCommand(),
 		},
 	}
 

@@ -1,0 +1,42 @@
+edition = "2023";
+
+package statistics.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/Hunsin/compass/protocols/gen/go/statistics/v1;statistics";
+
+// MarginTransaction holds daily margin trading data for a security.
+message MarginTransaction {
+  google.protobuf.Timestamp date = 1;
+  int64 margin_purchase_buy = 2;
+  int64 margin_purchase_redemption = 3;
+  int64 margin_purchase_cash_repayment = 4;
+  int64 margin_purchase_balance = 5;
+  int64 margin_purchase_limit = 6;
+  int64 short_sale = 7;
+  int64 short_sale_redemption = 8;
+  int64 short_sale_stock_repayment = 9;
+  int64 short_sale_balance = 10;
+  int64 short_sale_limit = 11;
+  int64 quota_next_day = 12;
+}
+
+message CreateMarginTransactionsRequest {
+  string exchange = 1;
+  string symbol = 2;
+  repeated MarginTransaction margin_transactions = 3;
+}
+
+message GetMarginTransactionsRequest {
+  string exchange = 1;
+  string symbol = 2;
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp before = 4;
+}
+
+service StatisticsService {
+  rpc CreateMarginTransactions(CreateMarginTransactionsRequest) returns (google.protobuf.Empty);
+  rpc GetMarginTransactions(GetMarginTransactionsRequest) returns (stream MarginTransaction);
+}
