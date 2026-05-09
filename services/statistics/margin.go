@@ -3,6 +3,7 @@ package statistics
 import (
 	"context"
 
+	"cloud.google.com/go/civil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -12,19 +13,30 @@ import (
 )
 
 func (s *Service) CreateMarginTransactions(ctx context.Context, req *pb.CreateMarginTransactionsRequest) (*emptypb.Empty, error) {
-	if req.GetExchange() == "" || req.GetSymbol() == "" {
-		return nil, status.Error(codes.InvalidArgument, "exchange and symbol are required")
+	if req.GetExchange() == "" {
+		return nil, status.Error(codes.InvalidArgument, "exchange is required")
 	}
-	if len(req.GetMarginTransactions()) == 0 {
+
+	date := req.GetDate()
+	if date == nil {
+		return nil, status.Error(codes.InvalidArgument, "date is required")
+	}
+
+	txs := req.GetMarginTransactions()
+	if len(txs) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "margin_transactions is required")
 	}
-	for _, tx := range req.GetMarginTransactions() {
-		if tx.GetDate() == nil {
-			return nil, status.Error(codes.InvalidArgument, "date is required for each transaction")
+
+	for symbol, mt := range txs {
+		if symbol == "" {
+			return nil, status.Error(codes.InvalidArgument, "symbol is required for each entry")
+		}
+		if mt == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "margin_transaction is required for symbol %s", symbol)
 		}
 	}
 
-	if err := s.model.CreateMarginTransactions(ctx, req.GetExchange(), req.GetSymbol(), req.GetMarginTransactions()); err != nil {
+	if err := s.model.CreateMarginTransactions(ctx, req.GetExchange(), civil.DateOf(date.AsTime()), txs); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

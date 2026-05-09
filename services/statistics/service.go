@@ -11,6 +11,7 @@ import (
 
 	statsLib "github.com/Hunsin/compass/lib/statistics"
 	pb "github.com/Hunsin/compass/protocols/gen/go/statistics/v1"
+	"github.com/rs/zerolog"
 )
 
 // Make sure Service implements the gRPC health server interface.
@@ -30,6 +31,7 @@ func New(m statsLib.Model) *Service {
 func (s *Service) Check(ctx context.Context, _ *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
 	res := healthpb.HealthCheckResponse_SERVING
 	if err := s.model.Health(ctx); err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("model health check failed")
 		res = healthpb.HealthCheckResponse_NOT_SERVING
 	}
 	return &healthpb.HealthCheckResponse{Status: res}, nil

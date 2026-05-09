@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/rs/zerolog"
 	"golang.org/x/sync/singleflight"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -53,32 +52,33 @@ func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.U
 	return v.(model.Security).ID, nil
 }
 
-func (s *store) CreateMarginTransactions(ctx context.Context, exchange, symbol string, txs []*pb.MarginTransaction) error {
+func (s *store) CreateMarginTransactions(ctx context.Context, exchange string, date civil.Date, txs map[string]*pb.MarginTransaction) error {
 	exchange = strings.ToLower(exchange)
-	symbol = strings.ToUpper(symbol)
-
-	secID, err := s.securityID(ctx, exchange, symbol)
-	if err != nil {
-		return err
+	idBySymbol := make(map[string]uuid.UUID, len(txs))
+	for symbol := range txs {
+		id, err := s.securityID(ctx, exchange, symbol)
+		if err != nil {
+			return err
+		}
+		idBySymbol[symbol] = id
 	}
 
-	params := make([]model.InsertMarginTransactionsParams, len(txs))
-	for i, tx := range txs {
-		params[i] = model.InsertMarginTransactionsParams{
-			SecID:                       secID,
-			Date:                        civil.DateOf(tx.GetDate().AsTime()),
-			MarginPurchaseBuy:           tx.GetMarginPurchaseBuy(),
-			MarginPurchaseRedemption:    tx.GetMarginPurchaseRedemption(),
-			MarginPurchaseCashRepayment: tx.GetMarginPurchaseCashRepayment(),
-			MarginPurchaseBalance:       tx.GetMarginPurchaseBalance(),
-			MarginPurchaseLimit:         tx.GetMarginPurchaseLimit(),
-			ShortSale:                   tx.GetShortSale(),
-			ShortSaleRedemption:         tx.GetShortSaleRedemption(),
-			ShortSaleStockRepayment:     tx.GetShortSaleStockRepayment(),
-			ShortSaleBalance:            tx.GetShortSaleBalance(),
-			ShortSaleLimit:              tx.GetShortSaleLimit(),
-			QuotaNextDay:                tx.GetQuotaNextDay(),
-		}
+	params := make([]model.InsertMarginTransactionsParams, 0, len(txs))
+	for symbol, mt := range txs {
+		secID := idBySymbol[symbol]
+		params = append(params, model.InsertMarginTransactionsParams{
+			SecID:             secID,
+			Date:              date,
+			MarginPurchase:    mt.GetMarginPurchase(),
+			MarginSales:       mt.GetMarginSales(),
+			CashRedemption:    mt.GetCashRedemption(),
+			MarginBalance:     mt.GetMarginBalance(),
+			ShortCovering:     mt.GetShortCovering(),
+			ShortSale:         mt.GetShortSale(),
+			StockRedemption:   mt.GetStockRedemption(),
+			ShortBalance:      mt.GetShortBalance(),
+			MarginShortOffset: mt.GetMarginShortOffset(),
+		})
 	}
 
 	if _, err := s.queries.InsertMarginTransactions(ctx, params); err != nil {
@@ -107,30 +107,26 @@ func (s *store) GetMarginTransactions(ctx context.Context, exchange, symbol stri
 
 	result := make([]*pb.MarginTransaction, len(rows))
 	for i, r := range rows {
-		mpBuy := r.MarginPurchaseBuy
-		mpRedemption := r.MarginPurchaseRedemption
-		mpCashRepay := r.MarginPurchaseCashRepayment
-		mpBalance := r.MarginPurchaseBalance
-		mpLimit := r.MarginPurchaseLimit
+		mp := r.MarginPurchase
+		ms := r.MarginSales
+		cr := r.CashRedemption
+		mb := r.MarginBalance
+		sc := r.ShortCovering
 		ss := r.ShortSale
-		ssRedemption := r.ShortSaleRedemption
-		ssStockRepay := r.ShortSaleStockRepayment
-		ssBalance := r.ShortSaleBalance
-		ssLimit := r.ShortSaleLimit
-		quota := r.QuotaNextDay
+		sr := r.StockRedemption
+		sb := r.ShortBalance
+		mso := r.MarginShortOffset
 		result[i] = &pb.MarginTransaction{
-			Date:                        timestamppb.New(r.Date.In(time.UTC)),
-			MarginPurchaseBuy:           &mpBuy,
-			MarginPurchaseRedemption:    &mpRedemption,
-			MarginPurchaseCashRepayment: &mpCashRepay,
-			MarginPurchaseBalance:       &mpBalance,
-			MarginPurchaseLimit:         &mpLimit,
-			ShortSale:                   &ss,
-			ShortSaleRedemption:         &ssRedemption,
-			ShortSaleStockRepayment:     &ssStockRepay,
-			ShortSaleBalance:            &ssBalance,
-			ShortSaleLimit:              &ssLimit,
-			QuotaNextDay:                &quota,
+			Date:              timestamppb.New(r.Date.In(time.UTC)),
+			MarginPurchase:    &mp,
+			MarginSales:       &ms,
+			CashRedemption:    &cr,
+			MarginBalance:     &mb,
+			ShortCovering:     &sc,
+			ShortSale:         &ss,
+			StockRedemption:   &sr,
+			ShortBalance:      &sb,
+			MarginShortOffset: &mso,
 		}
 	}
 	return result, nil
@@ -138,7 +134,6 @@ func (s *store) GetMarginTransactions(ctx context.Context, exchange, symbol stri
 
 func (s *store) Health(ctx context.Context) error {
 	if err := s.db.Ping(ctx); err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed to ping database")
 		return err
 	}
 	return nil

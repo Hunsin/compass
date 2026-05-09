@@ -53,23 +53,24 @@ func assertCode(t *testing.T, err error, want codes.Code) {
 
 func strPtr(s string) *string { return &s }
 
+func tsPtr(t time.Time) *timestamppb.Timestamp {
+	return timestamppb.New(t)
+}
+
 func int64Ptr(v int64) *int64 { return &v }
 
 func validTx() *pb.MarginTransaction {
-	ts := timestamppb.New(time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC))
 	return &pb.MarginTransaction{
-		Date:                        ts,
-		MarginPurchaseBuy:           int64Ptr(100),
-		MarginPurchaseRedemption:    int64Ptr(50),
-		MarginPurchaseCashRepayment: int64Ptr(10),
-		MarginPurchaseBalance:       int64Ptr(500),
-		MarginPurchaseLimit:         int64Ptr(1000),
-		ShortSale:                   int64Ptr(80),
-		ShortSaleRedemption:         int64Ptr(40),
-		ShortSaleStockRepayment:     int64Ptr(5),
-		ShortSaleBalance:            int64Ptr(300),
-		ShortSaleLimit:              int64Ptr(800),
-		QuotaNextDay:                int64Ptr(200),
+		Date:              tsPtr(time.Now()),
+		MarginPurchase:    int64Ptr(100),
+		MarginSales:       int64Ptr(50),
+		CashRedemption:    int64Ptr(10),
+		MarginBalance:     int64Ptr(500),
+		ShortCovering:     int64Ptr(80),
+		ShortSale:         int64Ptr(40),
+		StockRedemption:   int64Ptr(5),
+		ShortBalance:      int64Ptr(300),
+		MarginShortOffset: int64Ptr(200),
 	}
 }
 
@@ -82,25 +83,24 @@ func TestCreateMarginTransactions(t *testing.T) {
 	}{
 		{
 			name:     "missing exchange",
-			req:      &pb.CreateMarginTransactionsRequest{Symbol: strPtr("2330"), MarginTransactions: []*pb.MarginTransaction{validTx()}},
+			req:      &pb.CreateMarginTransactionsRequest{Date: tsPtr(time.Now()), MarginTransactions: map[string]*pb.MarginTransaction{"2330": validTx()}},
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name:     "missing symbol",
-			req:      &pb.CreateMarginTransactionsRequest{Exchange: strPtr("twse"), MarginTransactions: []*pb.MarginTransaction{validTx()}},
+			req:      &pb.CreateMarginTransactionsRequest{Exchange: strPtr("twse"), Date: tsPtr(time.Now()), MarginTransactions: map[string]*pb.MarginTransaction{"": validTx()}},
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name:     "empty margin_transactions",
-			req:      &pb.CreateMarginTransactionsRequest{Exchange: strPtr("twse"), Symbol: strPtr("2330")},
+			req:      &pb.CreateMarginTransactionsRequest{Exchange: strPtr("twse"), Date: tsPtr(time.Now()), MarginTransactions: map[string]*pb.MarginTransaction{}},
 			wantCode: codes.InvalidArgument,
 		},
 		{
 			name: "missing date in transaction",
 			req: &pb.CreateMarginTransactionsRequest{
 				Exchange:           strPtr("twse"),
-				Symbol:             strPtr("2330"),
-				MarginTransactions: []*pb.MarginTransaction{{}},
+				MarginTransactions: map[string]*pb.MarginTransaction{"2330": validTx()},
 			},
 			wantCode: codes.InvalidArgument,
 		},
@@ -108,8 +108,8 @@ func TestCreateMarginTransactions(t *testing.T) {
 			name: "security not found",
 			req: &pb.CreateMarginTransactionsRequest{
 				Exchange:           strPtr("twse"),
-				Symbol:             strPtr("2330"),
-				MarginTransactions: []*pb.MarginTransaction{validTx()},
+				Date:               tsPtr(time.Now()),
+				MarginTransactions: map[string]*pb.MarginTransaction{"2330": validTx()},
 			},
 			stub: func(m *statsLib.MockModel) {
 				m.EXPECT().CreateMarginTransactions(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -121,8 +121,8 @@ func TestCreateMarginTransactions(t *testing.T) {
 			name: "already exists",
 			req: &pb.CreateMarginTransactionsRequest{
 				Exchange:           strPtr("twse"),
-				Symbol:             strPtr("2330"),
-				MarginTransactions: []*pb.MarginTransaction{validTx()},
+				Date:               tsPtr(time.Now()),
+				MarginTransactions: map[string]*pb.MarginTransaction{"2330": validTx()},
 			},
 			stub: func(m *statsLib.MockModel) {
 				m.EXPECT().CreateMarginTransactions(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -134,8 +134,8 @@ func TestCreateMarginTransactions(t *testing.T) {
 			name: "internal error",
 			req: &pb.CreateMarginTransactionsRequest{
 				Exchange:           strPtr("twse"),
-				Symbol:             strPtr("2330"),
-				MarginTransactions: []*pb.MarginTransaction{validTx()},
+				Date:               tsPtr(time.Now()),
+				MarginTransactions: map[string]*pb.MarginTransaction{"2330": validTx()},
 			},
 			stub: func(m *statsLib.MockModel) {
 				m.EXPECT().CreateMarginTransactions(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -147,8 +147,8 @@ func TestCreateMarginTransactions(t *testing.T) {
 			name: "success",
 			req: &pb.CreateMarginTransactionsRequest{
 				Exchange:           strPtr("twse"),
-				Symbol:             strPtr("2330"),
-				MarginTransactions: []*pb.MarginTransaction{validTx()},
+				Date:               tsPtr(time.Now()),
+				MarginTransactions: map[string]*pb.MarginTransaction{"2330": validTx()},
 			},
 			stub: func(m *statsLib.MockModel) {
 				m.EXPECT().CreateMarginTransactions(mock.Anything, mock.Anything, mock.Anything, mock.Anything).

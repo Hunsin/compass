@@ -10,23 +10,23 @@ option go_package = "github.com/Hunsin/compass/protocols/gen/go/statistics/v1;st
 // MarginTransaction holds daily margin trading data for a security.
 message MarginTransaction {
   google.protobuf.Timestamp date = 1;
-  int64 margin_purchase_buy = 2;
-  int64 margin_purchase_redemption = 3;
-  int64 margin_purchase_cash_repayment = 4;
-  int64 margin_purchase_balance = 5;
-  int64 margin_purchase_limit = 6;
+  int64 margin_purchase = 2;
+  int64 margin_sales = 3;
+  int64 cash_redemption = 4;
+  int64 margin_balance = 5;
+  int64 short_covering = 6;
   int64 short_sale = 7;
-  int64 short_sale_redemption = 8;
-  int64 short_sale_stock_repayment = 9;
-  int64 short_sale_balance = 10;
-  int64 short_sale_limit = 11;
-  int64 quota_next_day = 12;
+  int64 stock_redemption = 8;
+  int64 short_balance = 9;
+  int64 margin_short_offset = 10;
 }
 
 message CreateMarginTransactionsRequest {
   string exchange = 1;
-  string symbol = 2;
-  repeated MarginTransaction margin_transactions = 3;
+  google.protobuf.Timestamp date = 2;
+
+  // Key is symbol; the date field in MarginTransaction is ignored since it's already provided in the request.
+  map<string, MarginTransaction> margin_transactions = 3;
 }
 
 message GetMarginTransactionsRequest {
