@@ -2,8 +2,8 @@
 Create the TWSE exchange and a set of securities via the Quote gRPC service.
 
 Usage:
-    python examples/create_securities.py
-    python examples/create_securities.py --server localhost:50168
+    python examples/quote/create_securities.py
+    python examples/quote/create_securities.py --server localhost:50168
 
 Prerequisites:
     pip install grpcio protobuf
@@ -16,7 +16,7 @@ from pathlib import Path
 # Add the buf-generated Python output directory to sys.path so that the
 # generated files can resolve their own internal imports (e.g. quote_pb2_grpc
 # does "from quote import quote_pb2").
-sys.path.insert(0, str(Path(__file__).parent.parent / "protocols" / "gen" / "python"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "protocols" / "gen" / "python"))
 
 import grpc
 from google.protobuf import empty_pb2
