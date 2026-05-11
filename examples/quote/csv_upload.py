@@ -8,10 +8,10 @@ The CSV filename must follow the pattern <symbol>_<date>.csv.
 Timestamps in the CSV are treated as local exchange time and stored as-is.
 
 Usage:
-    python examples/csv_upload/upload.py [--server ADDR] <csv_file>
+    python examples/quote/csv_upload.py [--server ADDR] <csv_file>
 
     # default server: localhost:50168
-    python examples/csv_upload/upload.py examples/csv_upload/2330_2025-12-11.csv
+    python examples/quote/csv_upload.py examples/quote/2330_2025-12-11.csv
 
 Prerequisites:
     pip install grpcio protobuf
@@ -26,7 +26,7 @@ from pathlib import Path
 # Add the buf-generated Python output directory to sys.path so that the
 # generated files can resolve their own internal imports (e.g. quote_pb2_grpc
 # does "from quote import quote_pb2").
-sys.path.insert(0, str(Path(__file__).parent.parent / "protocols" / "gen" / "python"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "protocols" / "gen" / "python"))
 
 import grpc
 from google.protobuf import duration_pb2, timestamp_pb2

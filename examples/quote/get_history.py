@@ -7,13 +7,13 @@ built the same way: treat the desired local date boundaries as UTC.
 
 Usage:
     # fetch 1m bars for 2025-12-11 (the date in the sample CSV)
-    python examples/get_history.py --symbol 2330 --date 2025-12-11
+    python examples/quote/get_history.py --symbol 2330 --date 2025-12-11
 
     # fetch 1m bars of 2330 for today (default)
-    python examples/get_history.py
+    python examples/quote/get_history.py
 
     # fetch 30m bars for a date range
-    python examples/get_history.py --symbol 2330 --date 2025-12-11 --interval 30m
+    python examples/quote/get_history.py --symbol 2330 --date 2025-12-11 --interval 30m
 
 Prerequisites:
     pip install grpcio protobuf
@@ -24,7 +24,7 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "protocols" / "gen" / "python"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "protocols" / "gen" / "python"))
 
 import grpc
 from google.protobuf import duration_pb2, timestamp_pb2

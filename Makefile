@@ -8,10 +8,10 @@ COMPOSE_RUN = docker compose run --rm --remove-orphans
 start:
 	@docker compose up --wait -d
 
-stop: stop-api stop-quote
+stop: stop-api stop-quote stop-statistics
 	@docker compose down --remove-orphans
 
-clean: stop-api stop-quote
+clean: stop-api stop-quote stop-statistics
 	-@docker compose down --remove-orphans --rmi local --volumes
 	-@docker volume rm compass-app
 
@@ -67,3 +67,9 @@ start-quote:
 
 stop-quote:
 	-@docker stop compass-quote-service
+
+start-statistics:
+	@$(COMPOSE_RUN) -d --name compass-statistics-service -p 50178:50178 app statistics --grpc-addr :50178
+
+stop-statistics:
+	-@docker stop compass-statistics-service
