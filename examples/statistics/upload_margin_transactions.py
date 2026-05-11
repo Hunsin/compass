@@ -24,7 +24,6 @@ from pathlib import Path
 # Make `_common` importable regardless of the current working directory.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import grpc
 import requests
 import urllib3
 
@@ -32,6 +31,7 @@ from _common import (
     DEFAULT_SERVER,
     EXCHANGE,
     SYMBOLS,
+    create_channel,
     statistics_pb2,
     statistics_pb2_grpc,
     to_timestamp,
@@ -120,6 +120,7 @@ def main():
         description="Upload TWSE margin transactions to the Statistics service"
     )
     parser.add_argument("--server", default=DEFAULT_SERVER, help="gRPC server address")
+    parser.add_argument("--token", default=None, help="Keycloak access token (Bearer)")
     parser.add_argument(
         "--start", default="2026-05-04", help="start date (YYYY-MM-DD, inclusive)"
     )
@@ -131,7 +132,7 @@ def main():
     start = date.fromisoformat(args.start)
     end = date.fromisoformat(args.end)
 
-    with grpc.insecure_channel(args.server) as channel:
+    with create_channel(args.server, args.token) as channel:
         stub = statistics_pb2_grpc.StatisticsServiceStub(channel)
 
         d = start
@@ -150,6 +151,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import grpc
+
     try:
         main()
     except grpc.RpcError as e:
