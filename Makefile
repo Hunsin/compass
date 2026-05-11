@@ -57,19 +57,19 @@ build:
 install: start migrate-up sqlc proto mock build
 
 start-api:
-	@$(COMPOSE_RUN) -d --name compass-api-service -p 50188:50188 -p 50189:50189 app api --grpc-addr :50188 --http-addr :50189
+	@$(COMPOSE_RUN) --no-deps -d --name compass-api-service -p 50188:50188 -p 50189:50189 app api --grpc-addr :50188 --http-addr :50189
 
 stop-api:
 	-@docker stop compass-api-service
 
 start-quote:
-	@$(COMPOSE_RUN) -d --name compass-quote-service -p 50168:50168 app quote --grpc-addr :50168
+	@$(COMPOSE_RUN) --no-deps -d --name compass-quote-service -p 50168:50168 app quote --grpc-addr :50168
 
 stop-quote:
 	-@docker stop compass-quote-service
 
 start-statistics:
-	@$(COMPOSE_RUN) -d --name compass-statistics-service -p 50178:50178 app statistics --grpc-addr :50178
+	@$(COMPOSE_RUN) --no-deps -d --name compass-statistics-service -p 50178:50178 app statistics --grpc-addr :50178
 
 stop-statistics:
 	-@docker stop compass-statistics-service
