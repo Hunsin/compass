@@ -4,6 +4,7 @@ package statistics
 import (
 	"context"
 
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -11,7 +12,6 @@ import (
 
 	statsLib "github.com/Hunsin/compass/lib/statistics"
 	pb "github.com/Hunsin/compass/protocols/gen/go/statistics/v1"
-	"github.com/rs/zerolog"
 )
 
 // Make sure Service implements the gRPC health server interface.
