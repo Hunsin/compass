@@ -3,6 +3,8 @@ package statistics
 import (
 	"context"
 	"errors"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -55,12 +57,14 @@ func (s *store) securityID(ctx context.Context, exchange, symbol string) (uuid.U
 func (s *store) CreateMarginTransactions(ctx context.Context, exchange string, date civil.Date, txs map[string]*pb.MarginTransaction) error {
 	exchange = strings.ToLower(exchange)
 	idBySymbol := make(map[string]uuid.UUID, len(txs))
-	for symbol := range txs {
-		id, err := s.securityID(ctx, exchange, symbol)
-		if err != nil {
-			return err
-		}
-		idBySymbol[symbol] = id
+
+	symbols := slices.Collect(maps.Keys(txs))
+	secs, err := s.queries.GetSecuritiesBySymbols(ctx, exchange, symbols)
+	if err != nil {
+		return oops.Internal(err)
+	}
+	for _, sec := range secs {
+		idBySymbol[sec.Symbol] = sec.ID
 	}
 
 	params := make([]model.InsertMarginTransactionsParams, 0, len(txs))

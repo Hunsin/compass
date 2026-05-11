@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
+
 	pb "github.com/Hunsin/compass/protocols/gen/go/statistics/v1"
 )
 

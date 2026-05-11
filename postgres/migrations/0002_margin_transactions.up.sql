@@ -13,5 +13,3 @@ CREATE TABLE margin_transactions (
     UNIQUE (sec_id, date),
     FOREIGN KEY (sec_id) REFERENCES securities(id) ON DELETE CASCADE
 );
-
-CREATE INDEX idx_margin_transactions_sec_id_date ON margin_transactions (sec_id, date);
