@@ -9,7 +9,7 @@ Usage:
     python examples/api/me.py --token <ACCESS_TOKEN>
 
     # Or pipe the token from login.py via jq
-    python examples/api/login.py | jq -r .access_token | python examples/api/me.py --token $(cat -)
+    python examples/api/login.py | jq -r .access_token | xargs -I {} python examples/api/me.py --token {}
 
 Prerequisites:
     pip install requests
@@ -49,8 +49,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except requests.HTTPError as e:
-        print(f"HTTP error: {e}", file=sys.stderr)
-        if e.response is not None:
+    except requests.RequestException as e:
+        print(f"Request error: {e}", file=sys.stderr)
+        if getattr(e, "response", None) is not None:
             print(e.response.text, file=sys.stderr)
         sys.exit(1)

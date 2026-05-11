@@ -52,19 +52,20 @@ def main():
     token = data.get("access_token", data.get("accessToken", ""))
     if token:
         short = token[:20] + "..." if len(token) > 20 else token
-        print(f"\nAccess token (truncated): {short}")
+        print(f"\nAccess token (truncated): {short}", file=sys.stderr)
         print(
             "\nUse the full access_token value as:\n"
             '  curl -H "Authorization: Bearer <ACCESS_TOKEN>" '
-            f"{args.server}/api/me"
+            f"{args.server}/api/me",
+            file=sys.stderr,
         )
 
 
 if __name__ == "__main__":
     try:
         main()
-    except requests.HTTPError as e:
-        print(f"HTTP error: {e}", file=sys.stderr)
-        if e.response is not None:
+    except requests.RequestException as e:
+        print(f"Request error: {e}", file=sys.stderr)
+        if getattr(e, "response", None) is not None:
             print(e.response.text, file=sys.stderr)
         sys.exit(1)
