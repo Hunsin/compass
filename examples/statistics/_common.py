@@ -4,6 +4,7 @@ loads the buf-generated `statistics.v1` Python package (working around
 the stdlib `statistics` shadowing) and exposes constants/utilities.
 """
 
+import collections
 import importlib.util
 import sys
 import types
@@ -42,6 +43,8 @@ statistics_pb2_grpc = _load_proto_module(
     _GEN_DIR / "statistics" / "v1" / "statistics_pb2_grpc.py",
 )
 
+import grpc  # noqa: E402
+
 from google.protobuf import timestamp_pb2  # noqa: E402
 
 EXCHANGE = "twse"
@@ -54,3 +57,45 @@ def to_timestamp(d: date) -> timestamp_pb2.Timestamp:
     ts = timestamp_pb2.Timestamp()
     ts.FromDatetime(datetime(d.year, d.month, d.day, tzinfo=timezone.utc))
     return ts
+
+
+_ClientCallDetails = collections.namedtuple(
+    "_ClientCallDetails",
+    ("method", "timeout", "metadata", "credentials", "wait_for_ready", "compression"),
+)
+
+
+class _AuthInterceptor(
+    grpc.UnaryUnaryClientInterceptor, grpc.UnaryStreamClientInterceptor
+):
+    """Injects an Authorization header into every gRPC call."""
+
+    def __init__(self, token: str):
+        self._metadata = (("authorization", f"Bearer {token}"),)
+
+    def _attach(self, client_call_details):
+        metadata = list(client_call_details.metadata or [])
+        metadata.extend(self._metadata)
+        new_details = _ClientCallDetails(
+            client_call_details.method,
+            client_call_details.timeout,
+            metadata,
+            getattr(client_call_details, "credentials", None),
+            getattr(client_call_details, "wait_for_ready", None),
+            getattr(client_call_details, "compression", None),
+        )
+        return new_details
+
+    def intercept_unary_unary(self, continuation, client_call_details, request):
+        return continuation(self._attach(client_call_details), request)
+
+    def intercept_unary_stream(self, continuation, client_call_details, request):
+        return continuation(self._attach(client_call_details), request)
+
+
+def create_channel(server: str, token: str | None = None) -> grpc.Channel:
+    """Create a gRPC channel, optionally attaching a Bearer token to every call."""
+    channel = grpc.insecure_channel(server)
+    if token is None:
+        return channel
+    return grpc.intercept_channel(channel, _AuthInterceptor(token))
