@@ -7,9 +7,9 @@ Python scripts that demonstrate how to interact with the Compass services.
 Make sure the Compass services are running before executing the examples:
 
 ```sh
-make start          # Start third-party services (Postgres, Redis, Keycloak)
-make start-api      # Start the API service
-make start-quote    # Start the Quote gRPC service
+make start             # Start third-party services (Postgres, Redis, Keycloak)
+make start-api         # Start the API service
+make start-quote       # Start the Quote gRPC service
 make start-statistics  # Start the Statistics gRPC service
 ```
 
